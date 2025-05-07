@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Camera, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Project } from "@/models/project";
+import { Project, CameraConfig, Edge } from "@/models/project";
 import { getProjectById } from "@/data/sample-projects";
 
 // Import our custom components
@@ -246,6 +246,189 @@ export default function ProjectDetailPage() {
     // Close dialog and reset selected area
     setDeleteAreaDialogOpen(false);
     setSelectedArea(null);
+    
+    // If we're viewing this area's detail, go back to the project view
+    if (selectedAreaId === selectedArea.id) {
+      setSelectedAreaId(null);
+    }
+  };
+  
+  // Camera configuration management functions
+  
+  // Function to add a camera configuration to an area
+  const handleAddCameraConfig = (
+    areaId: string,
+    cameraId: string,
+    position: string,
+    enableHeatmap: boolean,
+    enableInterpolation: boolean,
+    enableMasking: boolean
+  ) => {
+    if (!project) return;
+    
+    // Create new camera configuration
+    const newConfig: CameraConfig = {
+      camera_id: cameraId,
+      position: position,
+      enable_heatmap: enableHeatmap,
+      enable_interpolation: enableInterpolation,
+      enable_masking: enableMasking,
+      // If masking is enabled, create an empty masking config
+      masking_config: enableMasking ? { edges: [] } : undefined
+    };
+    
+    // Find the area
+    const area = project.areas.find(area => area.id === areaId);
+    
+    if (!area) return;
+    
+    // Check if this camera is already configured in this position
+    const existingConfig = area.camera_configs.find(
+      config => config.camera_id === cameraId && config.position === position
+    );
+    
+    // If there's an existing config, show an error
+    if (existingConfig) {
+      alert(`Camera "${cameraId}" is already configured in position "${position}"`);
+      return;
+    }
+    
+    // Add camera configuration to area (in a real app, this would be an API call)
+    // await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(newConfig)
+    // });
+    
+    // Update local state
+    setProject({
+      ...project,
+      areas: project.areas.map(area => 
+        area.id === areaId
+          ? { ...area, camera_configs: [...area.camera_configs, newConfig] }
+          : area
+      )
+    });
+  };
+  
+  // Function to update a camera configuration
+  const handleEditCameraConfig = (
+    areaId: string,
+    cameraId: string,
+    originalPosition: string,
+    newPosition: string,
+    enableHeatmap: boolean,
+    enableInterpolation: boolean,
+    enableMasking: boolean,
+    maskingEdges?: Edge[]
+  ) => {
+    if (!project) return;
+    
+    // Find the area
+    const area = project.areas.find(area => area.id === areaId);
+    
+    if (!area) return;
+    
+    // Find the camera configuration
+    const configIndex = area.camera_configs.findIndex(
+      config => config.camera_id === cameraId && config.position === originalPosition
+    );
+    
+    if (configIndex === -1) return;
+    
+    // Create updated configuration
+    const updatedConfig = {
+      ...area.camera_configs[configIndex],
+      position: newPosition,
+      enable_heatmap: enableHeatmap,
+      enable_interpolation: enableInterpolation,
+      enable_masking: enableMasking,
+    };
+    
+    // Handle masking configuration
+    if (!enableMasking) {
+      // If masking was disabled, remove masking config
+      delete updatedConfig.masking_config;
+    } else if (maskingEdges && maskingEdges.length > 0) {
+      // If new masking edges were provided, update config
+      updatedConfig.masking_config = { edges: maskingEdges };
+    } else if (!updatedConfig.masking_config) {
+      // If masking was enabled but no config exists, create empty config
+      updatedConfig.masking_config = { edges: [] };
+    }
+    
+    // If position changed, check if it conflicts with an existing config
+    if (originalPosition !== newPosition) {
+      const existingConfig = area.camera_configs.find(
+        config => config !== area.camera_configs[configIndex] &&
+                 config.camera_id === cameraId && 
+                 config.position === newPosition
+      );
+      
+      if (existingConfig) {
+        alert(`Camera "${cameraId}" is already configured in position "${newPosition}"`);
+        return;
+      }
+    }
+    
+    // Update camera configuration (in a real app, this would be an API call)
+    // await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs/${cameraId}/${originalPosition}`, {
+    //   method: 'PUT',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({
+    //     position: newPosition,
+    //     enable_heatmap: enableHeatmap,
+    //     enable_interpolation: enableInterpolation,
+    //     enable_masking: enableMasking
+    //   })
+    // });
+    
+    // Update local state
+    const updatedConfigs = [...area.camera_configs];
+    updatedConfigs[configIndex] = updatedConfig;
+    
+    setProject({
+      ...project,
+      areas: project.areas.map(area => 
+        area.id === areaId
+          ? { ...area, camera_configs: updatedConfigs }
+          : area
+      )
+    });
+  };
+  
+  // Function to delete a camera configuration
+  const handleDeleteCameraConfig = (
+    areaId: string,
+    cameraId: string,
+    position: string
+  ) => {
+    if (!project) return;
+    
+    // Find the area
+    const area = project.areas.find(area => area.id === areaId);
+    
+    if (!area) return;
+    
+    // Delete camera configuration (in a real app, this would be an API call)
+    // await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs/${cameraId}/${position}`, {
+    //   method: 'DELETE'
+    // });
+    
+    // Update local state
+    setProject({
+      ...project,
+      areas: project.areas.map(area => 
+        area.id === areaId
+          ? { 
+              ...area, 
+              camera_configs: area.camera_configs.filter(
+                config => !(config.camera_id === cameraId && config.position === position)
+              )
+            }
+          : area
+      )
+    });
   };
   
   // Camera event handlers
@@ -300,14 +483,6 @@ export default function ProjectDetailPage() {
   
   const handleBackToAreas = () => {
     setSelectedAreaId(null);
-  };
-  
-  const handleAddCameraConfig = (areaId: string) => {
-    alert(`Add camera configuration to area ${areaId}`);
-  };
-  
-  const handleEditCameraConfig = (areaId: string, cameraId: string, position: string) => {
-    alert(`Edit configuration for camera ${cameraId} in position ${position} in area ${areaId}`);
   };
 
   // Loading state
@@ -489,6 +664,7 @@ export default function ProjectDetailPage() {
             onBack={handleBackToAreas}
             onAddCameraConfig={handleAddCameraConfig}
             onEditCameraConfig={handleEditCameraConfig}
+            onDeleteCameraConfig={handleDeleteCameraConfig}
           />
         </div>
       )}
