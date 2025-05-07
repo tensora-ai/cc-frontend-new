@@ -41,6 +41,12 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Add Tensora brand colors */
+  --color-tensora-light: var(--tensora-light);
+  --color-tensora-medium: var(--tensora-medium);
+  --color-tensora-dark: var(--tensora-dark);
+  --color-tensora-text: var(--tensora-text);
 }
 
 :root {
@@ -76,6 +82,12 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+
+  /* Add Tensora brand colors with hex values */
+  --tensora-light: #8C8FC0;
+  --tensora-medium: #5B5E96;
+  --tensora-dark: #1D1B44;
+  --tensora-text: #000000;
 }
 
 .dark {
