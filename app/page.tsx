@@ -1,103 +1,188 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useEffect } from "react";
+import { Video, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ProjectCard } from "@/components/project/project-card";
+import { DeleteProjectDialog } from "@/components/project/delete-project-dialog";
+import { CreateProjectDialog } from "@/components/project/create-project-dialog";
+import { Project } from "@/models/project";
+import { sampleProjects } from "@/data/sample-projects";
+
+export default function HomePage() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // State for delete project dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  
+  // State for create project dialog
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        setLoading(true);
+        // In a real app, this would be an API call
+        // const response = await fetch('/api/projects/all');
+        // const data = await response.json();
+        
+        // Simulating API call with sample data
+        setTimeout(() => {
+          setProjects(sampleProjects);
+          setLoading(false);
+        }, 1000);
+      } catch (err) {
+        console.error("Failed to fetch projects:", err);
+        setError("Failed to load projects. Please try again later.");
+        setLoading(false);
+      }
+    }
+    
+    fetchProjects();
+  }, []);
+
+  // Function to handle project deletion
+  const handleDeleteClick = (project: Project) => {
+    setProjectToDelete(project);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (projectToDelete) {
+      // In a real app, this would be an API call
+      // await fetch(`/api/projects/${projectToDelete.id}`, { method: 'DELETE' });
+      
+      // Update local state to remove the deleted project
+      setProjects(projects.filter(p => p.id !== projectToDelete.id));
+      
+      // Close the dialog and reset state
+      setDeleteDialogOpen(false);
+      setProjectToDelete(null);
+    }
+  };
+
+  // Function to handle project creation
+  const handleCreateProject = (id: string, name: string) => {
+    // Create a new project with minimal data
+    const newProject: Project = {
+      id,
+      name,
+      cameras: [],
+      areas: []
+    };
+    
+    // In a real app, this would be an API call
+    // await fetch('/api/projects', { 
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(newProject)
+    // });
+    
+    // Update local state to include the new project
+    setProjects([...projects, newProject]);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <main className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h2 className="text-3xl font-bold text-[var(--tensora-dark)] mb-2">Projects</h2>
+          <p className="text-gray-500">Select a project to view its crowd counting data</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+        {/* Prominent New Project button using Tensora dark color */}
+        <Button 
+          onClick={() => setCreateDialogOpen(true)}
+          size="lg"
+          className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)] text-white font-medium shadow-md"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          <Plus className="h-5 w-5 mr-2" /> New Project
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="border rounded-lg overflow-hidden shadow-sm">
+              <div className="p-6 pb-4">
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+              <div className="px-6 pb-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <Skeleton className="h-4 w-12 mb-1" />
+                    <Skeleton className="h-6 w-8" />
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <Skeleton className="h-4 w-12 mb-1" />
+                    <Skeleton className="h-6 w-8" />
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 pb-6">
+                <Skeleton className="h-9 w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <p className="font-medium">{error}</p>
+          <p className="text-sm mt-1">Try refreshing the page or contact support if the issue persists.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.map((project) => (
+            <ProjectCard 
+              key={project.id} 
+              project={project} 
+              onDeleteClick={handleDeleteClick}
+            />
+          ))}
+        </div>
+      )}
+
+      {!loading && !error && projects.length === 0 && (
+        <div className="bg-[var(--tensora-light)]/5 border border-[var(--tensora-light)]/20 rounded-lg p-8 text-center">
+          <Video className="h-12 w-12 mx-auto text-[var(--tensora-medium)] mb-4" />
+          <h3 className="text-lg font-medium text-[var(--tensora-dark)] mb-2">No projects found</h3>
+          <p className="text-gray-500 mb-4">
+            Get started by creating your first project.
+          </p>
+          {/* Empty state action button using Tensora dark color */}
+          <Button 
+            onClick={() => setCreateDialogOpen(true)}
+            size="lg"
+            className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)] text-white font-medium shadow-md"
+          >
+            <Plus className="h-5 w-5 mr-2" /> Create Project
+          </Button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {projectToDelete && (
+        <DeleteProjectDialog
+          isOpen={deleteDialogOpen}
+          projectName={projectToDelete.name}
+          onConfirm={confirmDelete}
+          onCancel={() => {
+            setDeleteDialogOpen(false);
+            setProjectToDelete(null);
+          }}
+        />
+      )}
+
+      {/* Create Project Dialog */}
+      <CreateProjectDialog
+        isOpen={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        onCreateProject={handleCreateProject}
+      />
+    </main>
   );
 }
