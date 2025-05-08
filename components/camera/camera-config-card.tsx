@@ -1,4 +1,4 @@
-import { Settings, Camera, MapPin } from "lucide-react";
+import { Settings, Camera, MapPin, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -11,6 +11,7 @@ interface CameraConfigCardProps {
   enableMasking: boolean;
   maskingEdges?: number;
   onEdit: () => void;
+  onDelete: () => void;
 }
 
 export function CameraConfigCard({
@@ -21,7 +22,8 @@ export function CameraConfigCard({
   enableInterpolation,
   enableMasking,
   maskingEdges,
-  onEdit
+  onEdit,
+  onDelete,
 }: CameraConfigCardProps) {
   return (
     <Card className="overflow-hidden hover:border-[var(--tensora-medium)] transition-colors">
@@ -37,14 +39,26 @@ export function CameraConfigCard({
               </div>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-gray-500 hover:text-[var(--tensora-medium)]"
-            onClick={onEdit}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-1">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-gray-500 hover:text-[var(--tensora-medium)]"
+              onClick={onEdit}
+              title="Edit Configuration"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-gray-500 hover:text-red-600"
+              onClick={onDelete}
+              title="Delete Configuration"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         
         <div className="grid grid-cols-3 gap-2 text-sm mb-3">

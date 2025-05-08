@@ -222,7 +222,7 @@ export function AreaDetailCard({
                 const cameraName = camera ? camera.name : config.camera_id;
                 
                 return (
-                  <div key={`${config.camera_id}-${config.position}-${index}`} className="relative group">
+                  <div key={`${config.camera_id}-${config.position}-${index}`} className="relative">
                     <CameraConfigCard
                       cameraId={config.camera_id}
                       cameraName={cameraName}
@@ -232,15 +232,8 @@ export function AreaDetailCard({
                       enableMasking={config.enable_masking}
                       maskingEdges={config.masking_config?.edges.length}
                       onEdit={() => handleOpenEditConfig(config.camera_id, config.position)}
+                      onDelete={() => handleOpenDeleteConfig(config.camera_id, config.position)}
                     />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => handleOpenDeleteConfig(config.camera_id, config.position)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 );
               })}
