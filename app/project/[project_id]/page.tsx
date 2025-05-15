@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Camera, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Project, CameraConfig, Edge } from "@/models/project";
+import { Project, CameraConfig, Edge, CountingModel, ModelSchedule, Position } from "@/models/project";
 import { getProjectById } from "@/data/sample-projects";
 
 // Import our custom components
@@ -30,15 +30,15 @@ import { DeleteAreaDialog } from "@/components/area/delete-area-dialog";
 export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.project_id as string;
-  
+
   // Project data state
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Area detail view state
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
-  
+
   // Camera management dialog states
   const [addCameraDialogOpen, setAddCameraDialogOpen] = useState(false);
   const [editCameraDialogOpen, setEditCameraDialogOpen] = useState(false);
@@ -48,7 +48,7 @@ export default function ProjectDetailPage() {
     name: string;
     resolution: [number, number];
   } | null>(null);
-  
+
   // Area management dialog states
   const [addAreaDialogOpen, setAddAreaDialogOpen] = useState(false);
   const [editAreaDialogOpen, setEditAreaDialogOpen] = useState(false);
@@ -67,17 +67,17 @@ export default function ProjectDetailPage() {
         // In a real app, this would be an API call
         // const response = await fetch(`/api/projects/${projectId}`);
         // const data = await response.json();
-        
+
         // Simulating API call with sample data
         setTimeout(() => {
           const projectData = getProjectById(projectId);
-          
+
           if (projectData) {
             setProject(projectData);
           } else {
             setError("Project not found");
           }
-          
+
           setLoading(false);
         }, 1000);
       } catch (err) {
@@ -86,48 +86,76 @@ export default function ProjectDetailPage() {
         setLoading(false);
       }
     }
-    
+
     if (projectId) {
       fetchProject();
     }
   }, [projectId]);
 
   // Camera management functions
-  
+
   // Function to add a new camera
-  const handleAddCamera = (id: string, name: string, resolution: [number, number]) => {
+  const handleAddCamera = (
+    id: string,
+    name: string,
+    resolution: [number, number],
+    defaultModel: CountingModel,
+    sensorSize?: [number, number],
+    coordinates3d?: [number, number, number],
+    modelSchedules?: ModelSchedule[]
+  ) => {
     if (!project) return;
-    
+
     // Create new camera object
     const newCamera = {
       id,
       name,
-      resolution
+      resolution,
+      sensor_size: sensorSize,
+      coordinates_3d: coordinates3d,
+      default_model: defaultModel,
+      model_schedules: modelSchedules
     };
-    
+
     // Add camera to project (in a real app, this would be an API call)
     // await fetch(`/api/projects/${projectId}/cameras`, {
     //   method: 'POST',
     //   headers: { 'Content-Type': 'application/json' },
     //   body: JSON.stringify(newCamera)
     // });
-    
+
     // Update local state
     setProject({
       ...project,
       cameras: [...project.cameras, newCamera]
     });
   };
-  
+
+
   // Function to update an existing camera
-  const handleUpdateCamera = (id: string, name: string, resolution: [number, number]) => {
+  const handleUpdateCamera = (
+    id: string, 
+    name: string, 
+    resolution: [number, number],
+    defaultModel: CountingModel,
+    sensorSize?: [number, number],
+    coordinates3d?: [number, number, number],
+    modelSchedules?: ModelSchedule[]
+  ) => {
     if (!project) return;
     
     // Update camera in project (in a real app, this would be an API call)
     // await fetch(`/api/projects/${projectId}/cameras/${id}`, {
     //   method: 'PUT',
     //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ name, resolution })
+    //   body: JSON.stringify({ 
+    //     name, 
+    //     resolution,
+    //     sensor_size: sensorSize,
+    //     coordinates_3d: coordinates3d, 
+    //     default_model: defaultModel, 
+    //     model_schedules: modelSchedules 
+    //   })
     // });
     
     // Update local state
@@ -135,21 +163,29 @@ export default function ProjectDetailPage() {
       ...project,
       cameras: project.cameras.map(camera => 
         camera.id === id 
-          ? { ...camera, name, resolution } 
+          ? { 
+              ...camera, 
+              name, 
+              resolution,
+              sensor_size: sensorSize,
+              coordinates_3d: coordinates3d,
+              default_model: defaultModel,
+              model_schedules: modelSchedules
+            } 
           : camera
       )
     });
   };
-  
+
   // Function to delete a camera
   const handleDeleteCamera = () => {
     if (!project || !selectedCamera) return;
-    
+
     // Delete camera from project (in a real app, this would be an API call)
     // await fetch(`/api/projects/${projectId}/cameras/${selectedCamera.id}`, {
     //   method: 'DELETE'
     // });
-    
+
     // If this camera has configurations in any areas, remove them
     const updatedAreas = project.areas.map(area => ({
       ...area,
@@ -157,139 +193,142 @@ export default function ProjectDetailPage() {
         config => config.camera_id !== selectedCamera.id
       )
     }));
-    
+
     // Update local state
     setProject({
       ...project,
       cameras: project.cameras.filter(camera => camera.id !== selectedCamera.id),
       areas: updatedAreas
     });
-    
+
     // Close dialog and reset selected camera
     setDeleteCameraDialogOpen(false);
     setSelectedCamera(null);
   };
-  
+
   // Check if a camera has any configurations in any areas
   const cameraHasConfigurations = (cameraId: string): boolean => {
     if (!project) return false;
-    
-    return project.areas.some(area => 
+
+    return project.areas.some(area =>
       area.camera_configs.some(config => config.camera_id === cameraId)
     );
   };
-  
+
   // Area management functions
-  
+
   // Function to add a new area
   const handleAddArea = (id: string, name: string) => {
     if (!project) return;
-    
+
     // Create new area object
     const newArea = {
       id,
       name,
       camera_configs: []
     };
-    
+
     // Add area to project (in a real app, this would be an API call)
     // await fetch(`/api/projects/${projectId}/areas`, {
     //   method: 'POST',
     //   headers: { 'Content-Type': 'application/json' },
     //   body: JSON.stringify(newArea)
     // });
-    
+
     // Update local state
     setProject({
       ...project,
       areas: [...project.areas, newArea]
     });
   };
-  
+
   // Function to update an existing area
   const handleUpdateArea = (id: string, name: string) => {
     if (!project) return;
-    
+
     // Update area in project (in a real app, this would be an API call)
     // await fetch(`/api/projects/${projectId}/areas/${id}`, {
     //   method: 'PUT',
     //   headers: { 'Content-Type': 'application/json' },
     //   body: JSON.stringify({ name })
     // });
-    
+
     // Update local state
     setProject({
       ...project,
-      areas: project.areas.map(area => 
-        area.id === id 
-          ? { ...area, name } 
+      areas: project.areas.map(area =>
+        area.id === id
+          ? { ...area, name }
           : area
       )
     });
   };
-  
+
   // Function to delete an area
   const handleDeleteArea = () => {
     if (!project || !selectedArea) return;
-    
+
     // Delete area from project (in a real app, this would be an API call)
     // await fetch(`/api/projects/${projectId}/areas/${selectedArea.id}`, {
     //   method: 'DELETE'
     // });
-    
+
     // Update local state
     setProject({
       ...project,
       areas: project.areas.filter(area => area.id !== selectedArea.id)
     });
-    
+
     // Close dialog and reset selected area
     setDeleteAreaDialogOpen(false);
     setSelectedArea(null);
-    
+
     // If we're viewing this area's detail, go back to the project view
     if (selectedAreaId === selectedArea.id) {
       setSelectedAreaId(null);
     }
   };
-  
+
   // Camera configuration management functions
-  
+
   // Function to add a camera configuration to an area
   const handleAddCameraConfig = (
     areaId: string,
     cameraId: string,
-    position: string,
+    position: Position,
     enableHeatmap: boolean,
     enableInterpolation: boolean,
-    enableMasking: boolean
+    enableMasking: boolean,
+    maskingEdges?: Edge[],
+    heatmapConfig?: [number, number, number, number],
   ) => {
     if (!project) return;
-    
-    // Create new camera configuration
-    const newConfig: CameraConfig = {
-      camera_id: cameraId,
-      position: position,
-      enable_heatmap: enableHeatmap,
-      enable_interpolation: enableInterpolation,
-      enable_masking: enableMasking,
-      // If masking is enabled, create an empty masking config
-      masking_config: enableMasking ? { edges: [] } : undefined
-    };
     
     // Find the area
     const area = project.areas.find(area => area.id === areaId);
     
     if (!area) return;
     
+    // Create new camera configuration
+    const newConfig: CameraConfig = {
+      camera_id: cameraId,
+      position: position,
+      enable_heatmap: enableHeatmap,
+      heatmap_config: heatmapConfig,
+      enable_interpolation: enableInterpolation,
+      enable_masking: enableMasking,
+      // If masking is enabled, create a masking config
+      masking_config: enableMasking && maskingEdges ? { edges: maskingEdges } : undefined
+    };
+    
     // Check if this camera is already configured in this position
     const existingConfig = area.camera_configs.find(
-      config => config.camera_id === cameraId && config.position === position
+      config => config.camera_id === cameraId && config.position.name === position.name
     );
     
     // If there's an existing config, show an error
     if (existingConfig) {
-      alert(`Camera "${cameraId}" is already configured in position "${position}"`);
+      alert(`Camera "${cameraId}" is already configured in position "${position.name}"`);
       return;
     }
     
@@ -310,17 +349,18 @@ export default function ProjectDetailPage() {
       )
     });
   };
-  
+
   // Function to update a camera configuration
   const handleEditCameraConfig = (
     areaId: string,
     cameraId: string,
     originalPosition: string,
-    newPosition: string,
+    position: Position,
     enableHeatmap: boolean,
     enableInterpolation: boolean,
     enableMasking: boolean,
-    maskingEdges?: Edge[]
+    maskingEdges?: Edge[],
+    heatmapConfig?: [number, number, number, number],
   ) => {
     if (!project) return;
     
@@ -331,7 +371,7 @@ export default function ProjectDetailPage() {
     
     // Find the camera configuration
     const configIndex = area.camera_configs.findIndex(
-      config => config.camera_id === cameraId && config.position === originalPosition
+      config => config.camera_id === cameraId && config.position.name === originalPosition
     );
     
     if (configIndex === -1) return;
@@ -339,8 +379,9 @@ export default function ProjectDetailPage() {
     // Create updated configuration
     const updatedConfig = {
       ...area.camera_configs[configIndex],
-      position: newPosition,
+      position: position,
       enable_heatmap: enableHeatmap,
+      heatmap_config: heatmapConfig,
       enable_interpolation: enableInterpolation,
       enable_masking: enableMasking,
     };
@@ -357,16 +398,16 @@ export default function ProjectDetailPage() {
       updatedConfig.masking_config = { edges: [] };
     }
     
-    // If position changed, check if it conflicts with an existing config
-    if (originalPosition !== newPosition) {
+    // If position name changed, check if it conflicts with an existing config
+    if (originalPosition !== position.name) {
       const existingConfig = area.camera_configs.find(
         config => config !== area.camera_configs[configIndex] &&
-                 config.camera_id === cameraId && 
-                 config.position === newPosition
+                config.camera_id === cameraId && 
+                config.position.name === position.name
       );
       
       if (existingConfig) {
-        alert(`Camera "${cameraId}" is already configured in position "${newPosition}"`);
+        alert(`Camera "${cameraId}" is already configured in position "${position.name}"`);
         return;
       }
     }
@@ -376,10 +417,12 @@ export default function ProjectDetailPage() {
     //   method: 'PUT',
     //   headers: { 'Content-Type': 'application/json' },
     //   body: JSON.stringify({
-    //     position: newPosition,
+    //     position: position,
     //     enable_heatmap: enableHeatmap,
+    //     heatmap_config: heatmapConfig,
     //     enable_interpolation: enableInterpolation,
-    //     enable_masking: enableMasking
+    //     enable_masking: enableMasking,
+    //     masking_config: updatedConfig.masking_config
     //   })
     // });
     
@@ -396,12 +439,12 @@ export default function ProjectDetailPage() {
       )
     });
   };
-  
+
   // Function to delete a camera configuration
   const handleDeleteCameraConfig = (
     areaId: string,
     cameraId: string,
-    position: string
+    positionName: string
   ) => {
     if (!project) return;
     
@@ -411,7 +454,7 @@ export default function ProjectDetailPage() {
     if (!area) return;
     
     // Delete camera configuration (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs/${cameraId}/${position}`, {
+    // await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs/${cameraId}/${positionName}`, {
     //   method: 'DELETE'
     // });
     
@@ -423,23 +466,23 @@ export default function ProjectDetailPage() {
           ? { 
               ...area, 
               camera_configs: area.camera_configs.filter(
-                config => !(config.camera_id === cameraId && config.position === position)
+                config => !(config.camera_id === cameraId && config.position.name === positionName)
               )
             }
           : area
       )
     });
   };
-  
+
   // Camera event handlers
   const handleOpenDashboard = () => {
     alert("Dashboard would open here");
   };
-  
+
   const handleOpenAddCameraDialog = () => {
     setAddCameraDialogOpen(true);
   };
-  
+
   const handleOpenEditCameraDialog = (cameraId: string) => {
     const camera = project?.cameras.find(c => c.id === cameraId);
     if (camera) {
@@ -447,7 +490,7 @@ export default function ProjectDetailPage() {
       setEditCameraDialogOpen(true);
     }
   };
-  
+
   const handleOpenDeleteCameraDialog = (cameraId: string) => {
     const camera = project?.cameras.find(c => c.id === cameraId);
     if (camera) {
@@ -455,12 +498,12 @@ export default function ProjectDetailPage() {
       setDeleteCameraDialogOpen(true);
     }
   };
-  
+
   // Area event handlers
   const handleOpenAddAreaDialog = () => {
     setAddAreaDialogOpen(true);
   };
-  
+
   const handleOpenEditAreaDialog = (areaId: string) => {
     const area = project?.areas.find(a => a.id === areaId);
     if (area) {
@@ -468,7 +511,7 @@ export default function ProjectDetailPage() {
       setEditAreaDialogOpen(true);
     }
   };
-  
+
   const handleOpenDeleteAreaDialog = (areaId: string) => {
     const area = project?.areas.find(a => a.id === areaId);
     if (area) {
@@ -476,11 +519,11 @@ export default function ProjectDetailPage() {
       setDeleteAreaDialogOpen(true);
     }
   };
-  
+
   const handleConfigureArea = (areaId: string) => {
     setSelectedAreaId(areaId);
   };
-  
+
   const handleBackToAreas = () => {
     setSelectedAreaId(null);
   };
@@ -495,11 +538,11 @@ export default function ProjectDetailPage() {
           </Link>
           <Skeleton className="h-8 w-48" />
         </div>
-        
+
         <div className="mb-8">
           <Skeleton className="h-16 w-full mb-4" />
         </div>
-        
+
         <div className="space-y-8">
           <div>
             <Skeleton className="h-8 w-40 mb-4" />
@@ -508,7 +551,7 @@ export default function ProjectDetailPage() {
               <Skeleton className="h-20 w-full" />
             </div>
           </div>
-          
+
           <div>
             <Skeleton className="h-8 w-40 mb-4" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -531,7 +574,7 @@ export default function ProjectDetailPage() {
           </Link>
           <h1 className="text-2xl font-bold">Project Details</h1>
         </div>
-        
+
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           <p className="font-medium">{error || "Project not found"}</p>
           <p className="text-sm mt-1">Please go back and select a valid project.</p>
@@ -548,8 +591,8 @@ export default function ProjectDetailPage() {
   }
 
   // Find the selected area for detail view if any
-  const selectedAreaForDetail = selectedAreaId 
-    ? project.areas.find(area => area.id === selectedAreaId) 
+  const selectedAreaForDetail = selectedAreaId
+    ? project.areas.find(area => area.id === selectedAreaId)
     : null;
 
   return (
@@ -561,25 +604,25 @@ export default function ProjectDetailPage() {
         </Link>
         <h1 className="text-2xl font-bold text-[var(--tensora-dark)]">{project.name}</h1>
       </div>
-      
+
       {/* Project dashboard button */}
       <div className="mb-10">
         <DashboardButton onClick={handleOpenDashboard} />
       </div>
-      
+
       {/* Conditional rendering based on whether an area is selected */}
       {!selectedAreaForDetail ? (
         // Main project overview with individual cards
         <div className="space-y-10">
           {/* Camera Section */}
           <div>
-            <SectionHeader 
+            <SectionHeader
               icon={<Camera className="h-6 w-6" />}
               title="Camera Inventory"
               count={project.cameras.length}
               countLabel="camera"
             />
-            
+
             <div className="space-y-4">
               {/* Grid of camera cards */}
               {project.cameras.length > 0 ? (
@@ -601,27 +644,27 @@ export default function ProjectDetailPage() {
                   <p className="text-sm text-gray-400 mt-1">Add cameras to start monitoring</p>
                 </div>
               )}
-              
+
               {/* Add camera button */}
-              <AddButton 
-                label="Add Camera" 
-                onClick={handleOpenAddCameraDialog} 
+              <AddButton
+                label="Add Camera"
+                onClick={handleOpenAddCameraDialog}
               />
             </div>
           </div>
-          
+
           {/* Divider */}
           <div className="border-t border-gray-200"></div>
-          
+
           {/* Areas Section */}
           <div>
-            <SectionHeader 
+            <SectionHeader
               icon={<Map className="h-6 w-6" />}
               title="Monitoring Areas"
               count={project.areas.length}
               countLabel="area"
             />
-            
+
             <div className="space-y-4">
               {/* Grid of area cards */}
               {project.areas.length > 0 ? (
@@ -644,11 +687,11 @@ export default function ProjectDetailPage() {
                   <p className="text-sm text-gray-400 mt-1">Add areas to define monitoring zones</p>
                 </div>
               )}
-              
+
               {/* Add area button */}
-              <AddButton 
-                label="Add Area" 
-                onClick={handleOpenAddAreaDialog} 
+              <AddButton
+                label="Add Area"
+                onClick={handleOpenAddAreaDialog}
               />
             </div>
           </div>
@@ -668,16 +711,16 @@ export default function ProjectDetailPage() {
           />
         </div>
       )}
-      
+
       {/* CAMERA MANAGEMENT DIALOGS */}
-      
+
       {/* Dialog for adding a new camera */}
       <AddCameraDialog
         isOpen={addCameraDialogOpen}
         onClose={() => setAddCameraDialogOpen(false)}
         onAdd={handleAddCamera}
       />
-      
+
       {/* Dialog for editing a camera */}
       <EditCameraDialog
         isOpen={editCameraDialogOpen}
@@ -688,7 +731,7 @@ export default function ProjectDetailPage() {
         onUpdate={handleUpdateCamera}
         camera={selectedCamera}
       />
-      
+
       {/* Dialog for deleting a camera */}
       {selectedCamera && (
         <DeleteCameraDialog
@@ -702,16 +745,16 @@ export default function ProjectDetailPage() {
           hasConfigurations={cameraHasConfigurations(selectedCamera.id)}
         />
       )}
-      
+
       {/* AREA MANAGEMENT DIALOGS */}
-      
+
       {/* Dialog for adding a new area */}
       <AddAreaDialog
         isOpen={addAreaDialogOpen}
         onClose={() => setAddAreaDialogOpen(false)}
         onAdd={handleAddArea}
       />
-      
+
       {/* Dialog for editing an area */}
       <EditAreaDialog
         isOpen={editAreaDialogOpen}
@@ -722,7 +765,7 @@ export default function ProjectDetailPage() {
         onUpdate={handleUpdateArea}
         area={selectedArea}
       />
-      
+
       {/* Dialog for deleting an area */}
       {selectedArea && (
         <DeleteAreaDialog

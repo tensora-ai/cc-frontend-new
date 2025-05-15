@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { ChevronLeft, Map, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,23 +7,7 @@ import { AddButton } from "@/components/project/add-button";
 import { AddCameraConfigDialog } from "@/components/camera-config/add-camera-config-dialog";
 import { EditCameraConfigDialog } from "@/components/camera-config/edit-camera-config-dialog";
 import { DeleteCameraConfigDialog } from "@/components/camera-config/delete-camera-config-dialog";
-
-interface Camera {
-  id: string;
-  name: string;
-  resolution: [number, number];
-}
-
-interface CameraConfig {
-  camera_id: string;
-  position: string;
-  enable_heatmap: boolean;
-  enable_interpolation: boolean;
-  enable_masking: boolean;
-  masking_config?: {
-    edges: [number, number][];
-  };
-}
+import { Camera, CameraConfig, Edge, Position } from "@/models/project";
 
 interface AreaDetailCardProps {
   areaId: string;
@@ -36,19 +18,23 @@ interface AreaDetailCardProps {
   onAddCameraConfig: (
     areaId: string,
     cameraId: string,
-    position: string,
+    position: Position,
     enableHeatmap: boolean,
-    enableInterpolation: boolean,
-    enableMasking: boolean
+    enableInterpolation: boolean, 
+    enableMasking: boolean,
+    maskingEdges?: Edge[],
+    heatmapConfig?: [number, number, number, number],
   ) => void;
   onEditCameraConfig: (
     areaId: string,
     cameraId: string,
     originalPosition: string,
-    newPosition: string,
+    position: Position,
     enableHeatmap: boolean,
     enableInterpolation: boolean, 
-    enableMasking: boolean
+    enableMasking: boolean,
+    maskingEdges?: Edge[],
+    heatmapConfig?: [number, number, number, number],
   ) => void;
   onDeleteCameraConfig: (
     areaId: string,
@@ -77,14 +63,7 @@ export function AreaDetailCard({
   const [addConfigDialogOpen, setAddConfigDialogOpen] = useState(false);
   const [editConfigDialogOpen, setEditConfigDialogOpen] = useState(false);
   const [deleteConfigDialogOpen, setDeleteConfigDialogOpen] = useState(false);
-  const [selectedConfig, setSelectedConfig] = useState<{
-    cameraId: string,
-    position: string,
-    enableHeatmap: boolean,
-    enableInterpolation: boolean,
-    enableMasking: boolean,
-    maskingEdges?: number
-  } | null>(null);
+  const [selectedConfig, setSelectedConfig] = useState<CameraConfig | null>(null);
 
   // Find camera by ID
   const findCameraById = (cameraId: string): Camera | null => {
@@ -92,39 +71,25 @@ export function AreaDetailCard({
   };
 
   // Handle opening edit dialog
-  const handleOpenEditConfig = (cameraId: string, position: string) => {
+  const handleOpenEditConfig = (cameraId: string, positionName: string) => {
     const config = cameraConfigs.find(
-      config => config.camera_id === cameraId && config.position === position
+      config => config.camera_id === cameraId && config.position.name === positionName
     );
     
     if (config) {
-      setSelectedConfig({
-        cameraId: config.camera_id,
-        position: config.position,
-        enableHeatmap: config.enable_heatmap,
-        enableInterpolation: config.enable_interpolation,
-        enableMasking: config.enable_masking,
-        maskingEdges: config.masking_config?.edges.length
-      });
+      setSelectedConfig(config);
       setEditConfigDialogOpen(true);
     }
   };
 
   // Handle opening delete dialog
-  const handleOpenDeleteConfig = (cameraId: string, position: string) => {
+  const handleOpenDeleteConfig = (cameraId: string, positionName: string) => {
     const config = cameraConfigs.find(
-      config => config.camera_id === cameraId && config.position === position
+      config => config.camera_id === cameraId && config.position.name === positionName
     );
     
     if (config) {
-      setSelectedConfig({
-        cameraId: config.camera_id,
-        position: config.position,
-        enableHeatmap: config.enable_heatmap,
-        enableInterpolation: config.enable_interpolation,
-        enableMasking: config.enable_masking,
-        maskingEdges: config.masking_config?.edges.length
-      });
+      setSelectedConfig(config);
       setDeleteConfigDialogOpen(true);
     }
   };
@@ -132,10 +97,12 @@ export function AreaDetailCard({
   // Handle adding a camera configuration
   const handleAddCameraConfig = (
     cameraId: string,
-    position: string,
+    position: Position,
     enableHeatmap: boolean,
     enableInterpolation: boolean,
-    enableMasking: boolean
+    enableMasking: boolean,
+    maskingEdges?: Edge[],
+    heatmapConfig?: [number, number, number, number],
   ) => {
     onAddCameraConfig(
       areaId,
@@ -143,29 +110,34 @@ export function AreaDetailCard({
       position,
       enableHeatmap,
       enableInterpolation,
-      enableMasking
+      enableMasking,
+      maskingEdges,
+      heatmapConfig,
     );
   };
 
   // Handle editing a camera configuration
   const handleEditCameraConfig = (
     cameraId: string,
-    position: string,
+    originalPosition: string,
+    position: Position,
     enableHeatmap: boolean,
     enableInterpolation: boolean,
-    enableMasking: boolean
+    enableMasking: boolean,
+    maskingEdges?: Edge[],
+    heatmapConfig?: [number, number, number, number],
   ) => {
-    if (selectedConfig) {
-      onEditCameraConfig(
-        areaId,
-        cameraId,
-        selectedConfig.position, // Original position
-        position, // New position
-        enableHeatmap,
-        enableInterpolation,
-        enableMasking
-      );
-    }
+    onEditCameraConfig(
+      areaId,
+      cameraId,
+      originalPosition,
+      position,
+      enableHeatmap,
+      enableInterpolation,
+      enableMasking,
+      maskingEdges,
+      heatmapConfig,
+    );
   };
 
   // Handle deleting a camera configuration
@@ -173,8 +145,8 @@ export function AreaDetailCard({
     if (selectedConfig) {
       onDeleteCameraConfig(
         areaId,
-        selectedConfig.cameraId,
-        selectedConfig.position
+        selectedConfig.camera_id,
+        selectedConfig.position.name
       );
       setDeleteConfigDialogOpen(false);
       setSelectedConfig(null);
@@ -222,17 +194,18 @@ export function AreaDetailCard({
                 const cameraName = camera ? camera.name : config.camera_id;
                 
                 return (
-                  <div key={`${config.camera_id}-${config.position}-${index}`} className="relative">
+                  <div key={`${config.camera_id}-${config.position.name}-${index}`} className="relative">
                     <CameraConfigCard
                       cameraId={config.camera_id}
                       cameraName={cameraName}
                       position={config.position}
                       enableHeatmap={config.enable_heatmap}
+                      heatmapConfig={config.heatmap_config}
                       enableInterpolation={config.enable_interpolation}
                       enableMasking={config.enable_masking}
                       maskingEdges={config.masking_config?.edges.length}
-                      onEdit={() => handleOpenEditConfig(config.camera_id, config.position)}
-                      onDelete={() => handleOpenDeleteConfig(config.camera_id, config.position)}
+                      onEdit={() => handleOpenEditConfig(config.camera_id, config.position.name)}
+                      onDelete={() => handleOpenDeleteConfig(config.camera_id, config.position.name)}
                     />
                   </div>
                 );
@@ -281,8 +254,17 @@ export function AreaDetailCard({
             setSelectedConfig(null);
           }}
           onUpdate={handleEditCameraConfig}
-          config={selectedConfig}
-          availableCamera={findCameraById(selectedConfig.cameraId)}
+          config={{
+            cameraId: selectedConfig.camera_id,
+            position: selectedConfig.position,
+            enableHeatmap: selectedConfig.enable_heatmap,
+            heatmapConfig: selectedConfig.heatmap_config,
+            enableInterpolation: selectedConfig.enable_interpolation,
+            enableMasking: selectedConfig.enable_masking,
+            maskingEdges: selectedConfig.masking_config?.edges.length,
+            maskingConfig: selectedConfig.masking_config
+          }}
+          availableCamera={findCameraById(selectedConfig.camera_id)}
         />
       )}
 
@@ -295,9 +277,9 @@ export function AreaDetailCard({
             setSelectedConfig(null);
           }}
           onConfirm={handleDeleteCameraConfig}
-          cameraName={(findCameraById(selectedConfig.cameraId)?.name || selectedConfig.cameraId)}
-          position={selectedConfig.position}
-          hasMasking={selectedConfig.enableMasking && Boolean(selectedConfig.maskingEdges)}
+          cameraName={(findCameraById(selectedConfig.camera_id)?.name || selectedConfig.camera_id)}
+          position={selectedConfig.position.name}
+          hasMasking={selectedConfig.enable_masking && Boolean(selectedConfig.masking_config?.edges.length)}
         />
       )}
     </div>

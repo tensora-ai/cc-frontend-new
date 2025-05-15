@@ -1,7 +1,5 @@
-"use client";
-
 import { useState, useEffect } from "react";
-import { Camera, MapPin, Edit } from "lucide-react";
+import { Camera, MapPin, Edit, BarChart } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,8 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Camera as CameraType, Edge } from "@/models/project";
+import { Camera as CameraType, Edge, Position } from "@/models/project";
 import { MaskingEditor } from "@/components/camera-config/masking-editor";
 
 interface EditCameraConfigDialogProps {
@@ -22,16 +21,19 @@ interface EditCameraConfigDialogProps {
   onClose: () => void;
   onUpdate: (
     cameraId: string,
-    position: string,
+    originalPosition: string,
+    position: Position,
     enableHeatmap: boolean,
     enableInterpolation: boolean,
     enableMasking: boolean,
-    maskingEdges?: Edge[]
+    maskingEdges?: Edge[],
+    heatmapConfig?: [number, number, number, number],
   ) => void;
   config: {
     cameraId: string;
-    position: string;
+    position: Position;
     enableHeatmap: boolean;
+    heatmapConfig?: [number, number, number, number];
     enableInterpolation: boolean;
     enableMasking: boolean;
     maskingEdges?: number;
@@ -50,38 +52,86 @@ export function EditCameraConfigDialog({
   availableCamera
 }: EditCameraConfigDialogProps) {
   // Form state
-  const [position, setPosition] = useState<string>("");
+  const [positionName, setPositionName] = useState<string>("");
+  const [centerGroundPlaneX, setCenterGroundPlaneX] = useState<string>("");
+  const [centerGroundPlaneY, setCenterGroundPlaneY] = useState<string>("");
+  const [focalLength, setFocalLength] = useState<string>("");
+  
   const [enableHeatmap, setEnableHeatmap] = useState<boolean>(false);
+  const [heatmapMin, setHeatmapMin] = useState<string>("0");
+  const [heatmapLow, setHeatmapLow] = useState<string>("10");
+  const [heatmapMedium, setHeatmapMedium] = useState<string>("20");
+  const [heatmapMax, setHeatmapMax] = useState<string>("50");
+  
   const [enableInterpolation, setEnableInterpolation] = useState<boolean>(false);
   const [enableMasking, setEnableMasking] = useState<boolean>(false);
   const [maskingEdges, setMaskingEdges] = useState<Edge[]>([]);
   const [maskingEditorOpen, setMaskingEditorOpen] = useState<boolean>(false);
   
+  // Store original position name for update logic
+  const [originalPositionName, setOriginalPositionName] = useState<string>("");
+  
   // Validation state
   const [errors, setErrors] = useState<{
     position?: string;
+    centerGroundPlane?: string;
+    focalLength?: string;
+    heatmap?: string;
   }>({});
 
   // Update form when config changes
   useEffect(() => {
-    if (config) {
-      setPosition(config.position);
+    if (config && availableCamera) {
+      // Set position data
+      setPositionName(config.position.name);
+      setOriginalPositionName(config.position.name);
+      
+      if (config.position.center_ground_plane) {
+        setCenterGroundPlaneX(config.position.center_ground_plane[0].toString());
+        setCenterGroundPlaneY(config.position.center_ground_plane[1].toString());
+      } else {
+        setCenterGroundPlaneX("");
+        setCenterGroundPlaneY("");
+      }
+      
+      if (config.position.focal_length) {
+        setFocalLength(config.position.focal_length.toString());
+      } else {
+        setFocalLength("");
+      }
+      
+      // Set feature states
       setEnableHeatmap(config.enableHeatmap);
       setEnableInterpolation(config.enableInterpolation);
       setEnableMasking(config.enableMasking);
       
-      // Set masking edges from config if available
+      // Set heatmap config if exists
+      if (config.heatmapConfig) {
+        setHeatmapMin(config.heatmapConfig[0].toString());
+        setHeatmapLow(config.heatmapConfig[1].toString());
+        setHeatmapMedium(config.heatmapConfig[2].toString());
+        setHeatmapMax(config.heatmapConfig[3].toString());
+      } else {
+        setHeatmapMin("0");
+        setHeatmapLow("10");
+        setHeatmapMedium("20");
+        setHeatmapMax("50");
+      }
+      
+      // Set masking edges if exists
       if (config.maskingConfig && config.maskingConfig.edges) {
         setMaskingEdges(config.maskingConfig.edges);
       } else {
         // Set default edges if masking is enabled but no edges are defined
-        if (config.enableMasking && availableCamera) {
+        if (config.enableMasking) {
           setMaskingEdges([
             [0, 0],
             [0, availableCamera.resolution[1]],
             [availableCamera.resolution[0], availableCamera.resolution[1]],
             [availableCamera.resolution[0], 0]
           ]);
+        } else {
+          setMaskingEdges([]);
         }
       }
     }
@@ -97,10 +147,45 @@ export function EditCameraConfigDialog({
     // Validate form
     const newErrors: {
       position?: string;
+      centerGroundPlane?: string;
+      focalLength?: string;
+      heatmap?: string;
     } = {};
     
-    if (!position.trim()) {
-      newErrors.position = "Camera position is required";
+    if (!positionName.trim()) {
+      newErrors.position = "Camera position name is required";
+    }
+    
+    // Validate center ground plane if either X or Y is provided
+    if (centerGroundPlaneX.trim() || centerGroundPlaneY.trim()) {
+      const x = parseFloat(centerGroundPlaneX);
+      const y = parseFloat(centerGroundPlaneY);
+      
+      if (isNaN(x)) {
+        newErrors.centerGroundPlane = "X coordinate must be a number";
+      } else if (centerGroundPlaneY.trim() && isNaN(y)) {
+        newErrors.centerGroundPlane = "Y coordinate must be a number";
+      }
+    }
+    
+    // Validate focal length if provided
+    if (focalLength.trim()) {
+      const f = parseFloat(focalLength);
+      if (isNaN(f) || f <= 0) {
+        newErrors.focalLength = "Focal length must be a positive number";
+      }
+    }
+    
+    // Validate heatmap config if enabled
+    if (enableHeatmap) {
+      const min = parseFloat(heatmapMin);
+      const low = parseFloat(heatmapLow);
+      const medium = parseFloat(heatmapMedium);
+      const max = parseFloat(heatmapMax);
+      
+      if (isNaN(min) || isNaN(low) || isNaN(medium) || isNaN(max)) {
+        newErrors.heatmap = "All heatmap values must be numbers";
+      }
     }
     
     // If masking is enabled but no edges defined, show warning
@@ -114,14 +199,45 @@ export function EditCameraConfigDialog({
       return;
     }
     
-    // Submit the form with masking edges if masking is enabled
+    // Create position object
+    const position: Position = {
+      name: positionName,
+    };
+    
+    // Add optional position properties if provided
+    if (centerGroundPlaneX.trim() && centerGroundPlaneY.trim()) {
+      position.center_ground_plane = [
+        parseFloat(centerGroundPlaneX),
+        parseFloat(centerGroundPlaneY)
+      ];
+    }
+    
+    if (focalLength.trim()) {
+      position.focal_length = parseFloat(focalLength);
+    }
+    
+    // Create heatmap config if enabled
+    let heatmapConfig: [number, number, number, number] | undefined = undefined;
+    if (enableHeatmap) {
+      heatmapConfig = [
+        parseFloat(heatmapMin),
+        parseFloat(heatmapLow),
+        parseFloat(heatmapMedium),
+        parseFloat(heatmapMax)
+      ];
+    }
+    
+    // Submit the form
     onUpdate(
       config.cameraId,
+      originalPositionName,
       position,
       enableHeatmap,
+     
       enableInterpolation,
       enableMasking,
-      enableMasking ? maskingEdges : undefined
+      enableMasking ? maskingEdges : undefined,
+       heatmapConfig ? heatmapConfig : undefined,
     );
     
     // Close dialog
@@ -142,7 +258,7 @@ export function EditCameraConfigDialog({
 
   return (
     <Dialog open={isOpen && !maskingEditorOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <Camera className="mr-2 h-5 w-5 text-[var(--tensora-medium)]" />
@@ -154,107 +270,225 @@ export function EditCameraConfigDialog({
         </DialogHeader>
         
         {config && availableCamera ? (
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Camera</Label>
-              <div className="p-3 bg-gray-50 rounded-md">
-                <p className="font-medium">{availableCamera.name}</p>
-                <p className="text-sm text-gray-500">Resolution: {availableCamera.resolution[0]} × {availableCamera.resolution[1]}</p>
-              </div>
-            </div>
+          <Tabs defaultValue="basic">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="basic">Basic Info</TabsTrigger>
+              <TabsTrigger value="position">Position</TabsTrigger>
+              <TabsTrigger value="features">Features</TabsTrigger>
+            </TabsList>
             
-            <div className="grid gap-2">
-              <Label htmlFor="camera-position" className={errors.position ? "text-red-500" : ""}>
-                Camera Position
-              </Label>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-[var(--tensora-medium)]" />
-                <Input
-                  id="camera-position"
-                  value={position}
-                  onChange={(e) => setPosition(e.target.value)}
-                  placeholder="e.g., left, right, ceiling, overhead"
-                  className={errors.position ? "border-red-500" : ""}
-                />
-              </div>
-              {errors.position && <p className="text-xs text-red-500">{errors.position}</p>}
-            </div>
-            
-            <div className="grid gap-4 pt-2">
-              <Label>Configuration Options</Label>
-              
-              <div className="flex items-center justify-between bg-[var(--tensora-light)]/5 p-3 rounded-md">
-                <div>
-                  <h4 className="text-sm font-medium">Enable Heatmap</h4>
-                  <p className="text-xs text-gray-500">Show density visualization</p>
-                </div>
-                <Switch
-                  checked={enableHeatmap}
-                  onCheckedChange={setEnableHeatmap}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between bg-[var(--tensora-light)]/5 p-3 rounded-md">
-                <div>
-                  <h4 className="text-sm font-medium">Enable Interpolation</h4>
-                  <p className="text-xs text-gray-500">Smooth people count between frames</p>
-                </div>
-                <Switch
-                  checked={enableInterpolation}
-                  onCheckedChange={setEnableInterpolation}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between bg-[var(--tensora-light)]/5 p-3 rounded-md">
-                <div>
-                  <h4 className="text-sm font-medium">Enable Masking</h4>
-                  <p className="text-xs text-gray-500">Define specific counting regions</p>
-                </div>
-                <Switch
-                  checked={enableMasking}
-                  onCheckedChange={setEnableMasking}
-                />
-              </div>
-              
-              {enableMasking && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label>Masking Configuration</Label>
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      className="text-[var(--tensora-medium)]"
-                      onClick={handleOpenMaskingEditor}
-                    >
-                      <Edit className="h-4 w-4 mr-1" /> Edit Masking
-                    </Button>
+            <TabsContent value="basic" className="pt-4">
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label>Camera</Label>
+                  <div className="p-3 bg-gray-50 rounded-md">
+                    <p className="font-medium">{availableCamera.name}</p>
+                    <p className="text-sm text-gray-500">Resolution: {availableCamera.resolution[0]} × {availableCamera.resolution[1]}</p>
                   </div>
-                  
-                  {maskingEdges.length > 0 ? (
-                    <div className="p-3 bg-green-50 border border-green-100 rounded-md">
-                      <p className="text-sm text-green-700">
-                        Masking configuration: {maskingEdges.length} points defined
-                      </p>
-                      <p className="text-xs text-green-600 mt-1">
-                        {config.maskingEdges === maskingEdges.length 
-                          ? "Using existing masking configuration" 
-                          : "Masking has been modified"}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-md">
-                      <p className="text-sm text-yellow-700">
-                        No masking points defined
-                      </p>
-                      <p className="text-xs text-yellow-600 mt-1">
-                        Click "Edit Masking" to define the counting area
-                      </p>
-                    </div>
-                  )}
                 </div>
-              )}
-            </div>
-          </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="position-name" className={errors.position ? "text-red-500" : ""}>
+                    Position Name
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-[var(--tensora-medium)]" />
+                    <Input
+                      id="position-name"
+                      value={positionName}
+                      onChange={(e) => setPositionName(e.target.value)}
+                      placeholder="e.g., left, right, ceiling, overhead"
+                      className={errors.position ? "border-red-500" : ""}
+                    />
+                  </div>
+                  {errors.position && <p className="text-xs text-red-500">{errors.position}</p>}
+                  <p className="text-xs text-gray-500">
+                    Describe the position or angle of the camera in this area
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="position" className="pt-4">
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label className={errors.centerGroundPlane ? "text-red-500" : ""}>
+                    Center Ground Plane (optional)
+                  </Label>
+                  <div className="flex gap-2 items-center">
+                    <div className="flex flex-col flex-1">
+                      <span className="text-xs text-gray-500 mb-1">X</span>
+                      <Input
+                        value={centerGroundPlaneX}
+                        onChange={(e) => setCenterGroundPlaneX(e.target.value)}
+                        type="number"
+                        step="0.1"
+                        className={errors.centerGroundPlane ? "border-red-500" : ""}
+                      />
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <span className="text-xs text-gray-500 mb-1">Y</span>
+                      <Input
+                        value={centerGroundPlaneY}
+                        onChange={(e) => setCenterGroundPlaneY(e.target.value)}
+                        type="number"
+                        step="0.1"
+                        className={errors.centerGroundPlane ? "border-red-500" : ""}
+                      />
+                    </div>
+                  </div>
+                  {errors.centerGroundPlane && <p className="text-xs text-red-500">{errors.centerGroundPlane}</p>}
+                  <p className="text-xs text-gray-500">
+                    The center point of the ground plane in world coordinates
+                  </p>
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label className={errors.focalLength ? "text-red-500" : ""}>
+                    Focal Length (optional)
+                  </Label>
+                  <Input
+                    value={focalLength}
+                    onChange={(e) => setFocalLength(e.target.value)}
+                    type="number"
+                    step="0.0001"
+                    min="0.001"
+                    placeholder="e.g., 0.008"
+                    className={errors.focalLength ? "border-red-500" : ""}
+                  />
+                  {errors.focalLength && <p className="text-xs text-red-500">{errors.focalLength}</p>}
+                  <p className="text-xs text-gray-500">
+                    Focal length of the camera lens in meters
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="features" className="pt-4">
+              <div className="grid gap-4">
+                <div className="flex items-center justify-between bg-[var(--tensora-light)]/5 p-3 rounded-md">
+                  <div>
+                    <h4 className="text-sm font-medium">Enable Heatmap</h4>
+                    <p className="text-xs text-gray-500">Show density visualization</p>
+                  </div>
+                  <Switch
+                    checked={enableHeatmap}
+                    onCheckedChange={setEnableHeatmap}
+                  />
+                </div>
+                
+                {enableHeatmap && (
+                  <div className="ml-4 border-l-2 border-[var(--tensora-light)]/20 pl-4">
+                    <Label className={`mb-1 block text-sm ${errors.heatmap ? "text-red-500" : ""}`}>
+                      Heatmap Configuration
+                    </Label>
+                    <div className="grid grid-cols-4 gap-2 mb-1">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-500 mb-1">Value 1</span>
+                        <Input
+                          value={heatmapMin}
+                          onChange={(e) => setHeatmapMin(e.target.value)}
+                          type="number"
+                          className={errors.heatmap ? "border-red-500" : ""}
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-500 mb-1">Value 2</span>
+                        <Input
+                          value={heatmapLow}
+                          onChange={(e) => setHeatmapLow(e.target.value)}
+                          type="number"
+                          className={errors.heatmap ? "border-red-500" : ""}
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-500 mb-1">Value 3</span>
+                        <Input
+                          value={heatmapMedium}
+                          onChange={(e) => setHeatmapMedium(e.target.value)}
+                          type="number"
+                          className={errors.heatmap ? "border-red-500" : ""}
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-500 mb-1">Value 4</span>
+                        <Input
+                          value={heatmapMax}
+                          onChange={(e) => setHeatmapMax(e.target.value)}
+                          type="number"
+                          className={errors.heatmap ? "border-red-500" : ""}
+                        />
+                      </div>
+                    </div>
+                    {errors.heatmap && <p className="text-xs text-red-500 mb-2">{errors.heatmap}</p>}
+                    <p className="text-xs text-gray-500 mb-2">
+                      Heatmap configuration parameters
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between bg-[var(--tensora-light)]/5 p-3 rounded-md">
+                  <div>
+                    <h4 className="text-sm font-medium">Enable Interpolation</h4>
+                    <p className="text-xs text-gray-500">Smooth people count between frames</p>
+                  </div>
+                  <Switch
+                    checked={enableInterpolation}
+                    onCheckedChange={setEnableInterpolation}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between bg-[var(--tensora-light)]/5 p-3 rounded-md">
+                  <div>
+                    <h4 className="text-sm font-medium">Enable Masking</h4>
+                    <p className="text-xs text-gray-500">Define specific counting regions</p>
+                  </div>
+                  <Switch
+                    checked={enableMasking}
+                    onCheckedChange={setEnableMasking}
+                  />
+                </div>
+                
+                {enableMasking && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Masking Configuration</Label>
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        className="text-[var(--tensora-medium)]"
+                        onClick={handleOpenMaskingEditor}
+                      >
+                        <Edit className="h-4 w-4 mr-1" /> Edit Masking
+                      </Button>
+                    </div>
+                    
+                    {maskingEdges.length > 0 ? (
+                      <div className="p-3 bg-green-50 border border-green-100 rounded-md">
+                        <p className="text-sm text-green-700">
+                          Masking configuration: {maskingEdges.length} points defined
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          {config.maskingEdges === maskingEdges.length 
+                            ? "Using existing masking configuration" 
+                            : "Masking has been modified"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-md">
+                        <p className="text-sm text-yellow-700">
+                          No masking points defined
+                        </p>
+                        <p className="text-xs text-yellow-600 mt-1">
+                          Click "Edit Masking" to define the counting area
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         ) : (
           <div className="py-4 text-center text-gray-500">
             Configuration data not available
