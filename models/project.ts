@@ -4,8 +4,8 @@
 
 export interface Position {
   name: string;
-  center_ground_plane: [number, number];
-  focal_length: number;
+  center_ground_plane?: [number, number];
+  focal_length?: number;
 }
 
 export type Edge = [number, number];
@@ -26,12 +26,34 @@ export interface CameraConfig {
   masking_config?: MaskingConfig;
 }
 
+export enum CountingModel {
+  Model0725 = "model_0725.pth",
+  ModelNWPU = "model_nwpu.pth"
+}
+
+export interface TimeAtDay {
+  hour: number;
+  minute: number;
+  second: number;
+}
+
+export interface ModelSchedule {
+  id: string;
+  name: string;
+  start: TimeAtDay;
+  end: TimeAtDay;
+  model: CountingModel;
+}
+
 export interface Camera {
   id: string;
   name: string;
   resolution: [number, number];
-  sensor_size: [number, number];
-  coordinates_3d: [number, number, number];
+  sensor_size?: [number, number];
+  coordinates_3d?: [number, number, number];
+
+  default_model?: CountingModel;
+  model_schedules?: ModelSchedule[];
 }
 
 export interface Area {
