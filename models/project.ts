@@ -68,3 +68,60 @@ export interface Project {
   cameras: Camera[];
   areas: Area[];
 }
+
+// Request / Response Models
+export interface ProjectCreate {
+  id: string;
+  name: string;
+}
+
+export interface ProjectList {
+  projects: Project[];
+}
+
+export interface CameraCreate {
+  id: string;
+  name: string;
+  resolution: [number, number];
+  sensor_size?: [number, number];
+  coordinates_3d?: [number, number, number];
+  default_model?: CountingModel;
+  model_schedules?: ModelSchedule[];
+}
+
+export interface CameraUpdate {
+  name: string;
+  resolution: [number, number];
+  sensor_size?: [number, number];
+  coordinates_3d?: [number, number, number];
+  default_model?: CountingModel;
+  model_schedules?: ModelSchedule[];
+}
+
+export interface AreaCreate {
+  id: string;
+  name: string;
+}
+
+export interface AreaUpdate {
+  name: string;
+}
+
+export interface CameraConfigCreate {
+  camera_id: string;
+  position: Position;
+  enable_heatmap: boolean;
+  heatmap_config?: HeatmapConfig;
+  enable_interpolation: boolean;
+  enable_masking: boolean;
+  masking_edges?: Edge[];
+}
+
+export interface CameraConfigUpdate {
+  position: Position;
+  enable_heatmap: boolean;
+  heatmap_config?: HeatmapConfig;
+  enable_interpolation: boolean;
+  enable_masking: boolean;
+  masking_edges?: Edge[];
+}

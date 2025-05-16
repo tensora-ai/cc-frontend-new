@@ -8,7 +8,7 @@ import { ProjectCard } from "@/components/project/project-card";
 import { DeleteProjectDialog } from "@/components/project/delete-project-dialog";
 import { CreateProjectDialog } from "@/components/project/create-project-dialog";
 import { Project } from "@/models/project";
-import { sampleProjects } from "@/data/sample-projects";
+import { apiClient } from "@/lib/api-client";
 
 export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -26,15 +26,10 @@ export default function HomePage() {
     async function fetchProjects() {
       try {
         setLoading(true);
-        // In a real app, this would be an API call
-        // const response = await fetch('/api/projects/all');
-        // const data = await response.json();
-        
-        // Simulating API call with sample data
-        setTimeout(() => {
-          setProjects(sampleProjects);
-          setLoading(false);
-        }, 1000);
+        // Call our API client to fetch projects
+        const data = await apiClient.getProjects();
+        setProjects(data);
+        setLoading(false);
       } catch (err) {
         console.error("Failed to fetch projects:", err);
         setError("Failed to load projects. Please try again later.");
@@ -51,39 +46,40 @@ export default function HomePage() {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (projectToDelete) {
-      // In a real app, this would be an API call
-      // await fetch(`/api/projects/${projectToDelete.id}`, { method: 'DELETE' });
-      
-      // Update local state to remove the deleted project
-      setProjects(projects.filter(p => p.id !== projectToDelete.id));
-      
-      // Close the dialog and reset state
-      setDeleteDialogOpen(false);
-      setProjectToDelete(null);
+      try {
+        // Call our API client to delete the project
+        await apiClient.deleteProject(projectToDelete.id);
+        
+        // Update local state to remove the deleted project
+        setProjects(projects.filter(p => p.id !== projectToDelete.id));
+        
+        // Close the dialog and reset state
+        setDeleteDialogOpen(false);
+        setProjectToDelete(null);
+      } catch (err) {
+        console.error("Failed to delete project:", err);
+        setError("Failed to delete project. Please try again later.");
+      }
     }
   };
 
   // Function to handle project creation
-  const handleCreateProject = (id: string, name: string) => {
-    // Create a new project with minimal data
-    const newProject: Project = {
-      id,
-      name,
-      cameras: [],
-      areas: []
-    };
-    
-    // In a real app, this would be an API call
-    // await fetch('/api/projects', { 
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(newProject)
-    // });
-    
-    // Update local state to include the new project
-    setProjects([...projects, newProject]);
+  const handleCreateProject = async (id: string, name: string) => {
+    try {
+      // Call our API client to create a new project
+      const newProject = await apiClient.createProject({ id, name });
+      
+      // Update local state to include the new project
+      setProjects([...projects, newProject]);
+      
+      // Close the dialog
+      setCreateDialogOpen(false);
+    } catch (err) {
+      console.error("Failed to create project:", err);
+      setError("Failed to create project. Please try again later.");
+    }
   };
 
   return (

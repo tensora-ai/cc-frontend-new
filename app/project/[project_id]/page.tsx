@@ -7,7 +7,7 @@ import { ArrowLeft, Camera, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Project, CameraConfig, Edge, CountingModel, ModelSchedule, Position } from "@/models/project";
-import { getProjectById } from "@/data/sample-projects";
+import { apiClient } from "@/lib/api-client";
 
 // Import our custom components
 import { DashboardButton } from "@/components/project/dashboard-button";
@@ -64,22 +64,17 @@ export default function ProjectDetailPage() {
     async function fetchProject() {
       try {
         setLoading(true);
-        // In a real app, this would be an API call
-        // const response = await fetch(`/api/projects/${projectId}`);
-        // const data = await response.json();
+        
+        // Call our API client to fetch the project
+        const projectData = await apiClient.getProject(projectId);
+        
+        if (projectData) {
+          setProject(projectData);
+        } else {
+          setError("Project not found");
+        }
 
-        // Simulating API call with sample data
-        setTimeout(() => {
-          const projectData = getProjectById(projectId);
-
-          if (projectData) {
-            setProject(projectData);
-          } else {
-            setError("Project not found");
-          }
-
-          setLoading(false);
-        }, 1000);
+        setLoading(false);
       } catch (err) {
         console.error("Failed to fetch project details:", err);
         setError("Failed to load project details. Please try again later.");
@@ -95,7 +90,7 @@ export default function ProjectDetailPage() {
   // Camera management functions
 
   // Function to add a new camera
-  const handleAddCamera = (
+  const handleAddCamera = async (
     id: string,
     name: string,
     resolution: [number, number],
@@ -106,34 +101,35 @@ export default function ProjectDetailPage() {
   ) => {
     if (!project) return;
 
-    // Create new camera object
-    const newCamera = {
-      id,
-      name,
-      resolution,
-      sensor_size: sensorSize,
-      coordinates_3d: coordinates3d,
-      default_model: defaultModel,
-      model_schedules: modelSchedules
-    };
+    try {
+      // Create new camera object
+      const newCamera = {
+        id,
+        name,
+        resolution,
+        sensor_size: sensorSize,
+        coordinates_3d: coordinates3d,
+        default_model: defaultModel,
+        model_schedules: modelSchedules
+      };
 
-    // Add camera to project (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/cameras`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(newCamera)
-    // });
-
-    // Update local state
-    setProject({
-      ...project,
-      cameras: [...project.cameras, newCamera]
-    });
+      // Call API client to add camera
+      const updatedProject = await apiClient.addCamera(projectId, newCamera);
+      
+      // Update local state
+      setProject(updatedProject);
+      
+      // Close dialog
+      setAddCameraDialogOpen(false);
+    } catch (err) {
+      console.error("Failed to add camera:", err);
+      setError("Failed to add camera. Please try again later.");
+    }
   };
 
 
   // Function to update an existing camera
-  const handleUpdateCamera = (
+  const handleUpdateCamera = async (
     id: string, 
     name: string, 
     resolution: [number, number],
@@ -144,66 +140,50 @@ export default function ProjectDetailPage() {
   ) => {
     if (!project) return;
     
-    // Update camera in project (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/cameras/${id}`, {
-    //   method: 'PUT',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ 
-    //     name, 
-    //     resolution,
-    //     sensor_size: sensorSize,
-    //     coordinates_3d: coordinates3d, 
-    //     default_model: defaultModel, 
-    //     model_schedules: modelSchedules 
-    //   })
-    // });
-    
-    // Update local state
-    setProject({
-      ...project,
-      cameras: project.cameras.map(camera => 
-        camera.id === id 
-          ? { 
-              ...camera, 
-              name, 
-              resolution,
-              sensor_size: sensorSize,
-              coordinates_3d: coordinates3d,
-              default_model: defaultModel,
-              model_schedules: modelSchedules
-            } 
-          : camera
-      )
-    });
+    try {
+      // Create camera update object
+      const updatedCamera = {
+        name, 
+        resolution,
+        sensor_size: sensorSize,
+        coordinates_3d: coordinates3d, 
+        default_model: defaultModel, 
+        model_schedules: modelSchedules 
+      };
+      
+      // Call API client to update camera
+      const updatedProject = await apiClient.updateCamera(projectId, id, updatedCamera);
+      
+      // Update local state
+      setProject(updatedProject);
+      
+      // Close dialog
+      setEditCameraDialogOpen(false);
+      setSelectedCamera(null);
+    } catch (err) {
+      console.error("Failed to update camera:", err);
+      setError("Failed to update camera. Please try again later.");
+    }
   };
 
   // Function to delete a camera
-  const handleDeleteCamera = () => {
+  const handleDeleteCamera = async () => {
     if (!project || !selectedCamera) return;
 
-    // Delete camera from project (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/cameras/${selectedCamera.id}`, {
-    //   method: 'DELETE'
-    // });
-
-    // If this camera has configurations in any areas, remove them
-    const updatedAreas = project.areas.map(area => ({
-      ...area,
-      camera_configs: area.camera_configs.filter(
-        config => config.camera_id !== selectedCamera.id
-      )
-    }));
-
-    // Update local state
-    setProject({
-      ...project,
-      cameras: project.cameras.filter(camera => camera.id !== selectedCamera.id),
-      areas: updatedAreas
-    });
-
-    // Close dialog and reset selected camera
-    setDeleteCameraDialogOpen(false);
-    setSelectedCamera(null);
+    try {
+      // Call API client to delete camera
+      const updatedProject = await apiClient.deleteCamera(projectId, selectedCamera.id);
+      
+      // Update local state
+      setProject(updatedProject);
+      
+      // Close dialog and reset selected camera
+      setDeleteCameraDialogOpen(false);
+      setSelectedCamera(null);
+    } catch (err) {
+      console.error("Failed to delete camera:", err);
+      setError("Failed to delete camera. Please try again later.");
+    }
   };
 
   // Check if a camera has any configurations in any areas
@@ -218,81 +198,84 @@ export default function ProjectDetailPage() {
   // Area management functions
 
   // Function to add a new area
-  const handleAddArea = (id: string, name: string) => {
+  const handleAddArea = async (id: string, name: string) => {
     if (!project) return;
 
-    // Create new area object
-    const newArea = {
-      id,
-      name,
-      camera_configs: []
-    };
+    try {
+      // Create new area object
+      const newArea = {
+        id,
+        name
+      };
 
-    // Add area to project (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/areas`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(newArea)
-    // });
-
-    // Update local state
-    setProject({
-      ...project,
-      areas: [...project.areas, newArea]
-    });
+      // Call API client to add area
+      const updatedProject = await apiClient.addArea(projectId, newArea);
+      
+      // Update local state
+      setProject(updatedProject);
+      
+      // Close dialog
+      setAddAreaDialogOpen(false);
+    } catch (err) {
+      console.error("Failed to add area:", err);
+      setError("Failed to add area. Please try again later.");
+    }
   };
 
   // Function to update an existing area
-  const handleUpdateArea = (id: string, name: string) => {
+  const handleUpdateArea = async (id: string, name: string) => {
     if (!project) return;
 
-    // Update area in project (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/areas/${id}`, {
-    //   method: 'PUT',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ name })
-    // });
-
-    // Update local state
-    setProject({
-      ...project,
-      areas: project.areas.map(area =>
-        area.id === id
-          ? { ...area, name }
-          : area
-      )
-    });
+    try {
+      // Create area update object
+      const updatedArea = {
+        name
+      };
+      
+      // Call API client to update area
+      const updatedProject = await apiClient.updateArea(projectId, id, updatedArea);
+      
+      // Update local state
+      setProject(updatedProject);
+      
+      // Close dialog
+      setEditAreaDialogOpen(false);
+      setSelectedArea(null);
+    } catch (err) {
+      console.error("Failed to update area:", err);
+      setError("Failed to update area. Please try again later.");
+    }
   };
 
   // Function to delete an area
-  const handleDeleteArea = () => {
+  const handleDeleteArea = async () => {
     if (!project || !selectedArea) return;
 
-    // Delete area from project (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/areas/${selectedArea.id}`, {
-    //   method: 'DELETE'
-    // });
-
-    // Update local state
-    setProject({
-      ...project,
-      areas: project.areas.filter(area => area.id !== selectedArea.id)
-    });
-
-    // Close dialog and reset selected area
-    setDeleteAreaDialogOpen(false);
-    setSelectedArea(null);
-
-    // If we're viewing this area's detail, go back to the project view
-    if (selectedAreaId === selectedArea.id) {
-      setSelectedAreaId(null);
+    try {
+      // Call API client to delete area
+      const updatedProject = await apiClient.deleteArea(projectId, selectedArea.id);
+      
+      // Update local state
+      setProject(updatedProject);
+      
+      // Close dialog and reset selected area
+      setDeleteAreaDialogOpen(false);
+      setSelectedArea(null);
+      
+      // If we're viewing this area's detail, go back to the project view
+      if (selectedAreaId === selectedArea.id) {
+        setSelectedAreaId(null);
+      }
+    } catch (err) {
+      console.error("Failed to delete area:", err);
+      setError("Failed to delete area. Please try again later.");
     }
   };
 
   // Camera configuration management functions
 
   // Function to add a camera configuration to an area
-  const handleAddCameraConfig = (
+  const handleAddCameraConfig = async (
     areaId: string,
     cameraId: string,
     position: Position,
@@ -304,174 +287,94 @@ export default function ProjectDetailPage() {
   ) => {
     if (!project) return;
     
-    // Find the area
-    const area = project.areas.find(area => area.id === areaId);
-    
-    if (!area) return;
-    
-    // Create new camera configuration
-    const newConfig: CameraConfig = {
-      camera_id: cameraId,
-      position: position,
-      enable_heatmap: enableHeatmap,
-      heatmap_config: heatmapConfig,
-      enable_interpolation: enableInterpolation,
-      enable_masking: enableMasking,
-      // If masking is enabled, create a masking config
-      masking_config: enableMasking && maskingEdges ? { edges: maskingEdges } : undefined
-    };
-    
-    // Check if this camera is already configured in this position
-    const existingConfig = area.camera_configs.find(
-      config => config.camera_id === cameraId && config.position.name === position.name
-    );
-    
-    // If there's an existing config, show an error
-    if (existingConfig) {
-      alert(`Camera "${cameraId}" is already configured in position "${position.name}"`);
-      return;
+    try {
+      // Create new camera configuration
+      const newConfig = {
+        camera_id: cameraId,
+        position: position,
+        enable_heatmap: enableHeatmap,
+        heatmap_config: heatmapConfig,
+        enable_interpolation: enableInterpolation,
+        enable_masking: enableMasking,
+        masking_edges: enableMasking ? maskingEdges : undefined
+      };
+      
+      // Call API client to add camera configuration
+      const updatedProject = await apiClient.addCameraConfig(projectId, areaId, newConfig);
+      
+      // Update local state
+      setProject(updatedProject);
+    } catch (err) {
+      console.error("Failed to add camera configuration:", err);
+      setError("Failed to add camera configuration. Please try again later.");
     }
-    
-    // Add camera configuration to area (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(newConfig)
-    // });
-    
-    // Update local state
-    setProject({
-      ...project,
-      areas: project.areas.map(area => 
-        area.id === areaId
-          ? { ...area, camera_configs: [...area.camera_configs, newConfig] }
-          : area
-      )
-    });
   };
 
   // Function to update a camera configuration
-  const handleEditCameraConfig = (
+  const handleEditCameraConfig = async (
     areaId: string,
     cameraId: string,
     originalPosition: string,
     position: Position,
     enableHeatmap: boolean,
-    enableInterpolation: boolean,
+    enableInterpolation: boolean, 
     enableMasking: boolean,
     maskingEdges?: Edge[],
     heatmapConfig?: [number, number, number, number],
   ) => {
     if (!project) return;
     
-    // Find the area
-    const area = project.areas.find(area => area.id === areaId);
-    
-    if (!area) return;
-    
-    // Find the camera configuration
-    const configIndex = area.camera_configs.findIndex(
-      config => config.camera_id === cameraId && config.position.name === originalPosition
-    );
-    
-    if (configIndex === -1) return;
-    
-    // Create updated configuration
-    const updatedConfig = {
-      ...area.camera_configs[configIndex],
-      position: position,
-      enable_heatmap: enableHeatmap,
-      heatmap_config: heatmapConfig,
-      enable_interpolation: enableInterpolation,
-      enable_masking: enableMasking,
-    };
-    
-    // Handle masking configuration
-    if (!enableMasking) {
-      // If masking was disabled, remove masking config
-      delete updatedConfig.masking_config;
-    } else if (maskingEdges && maskingEdges.length > 0) {
-      // If new masking edges were provided, update config
-      updatedConfig.masking_config = { edges: maskingEdges };
-    } else if (!updatedConfig.masking_config) {
-      // If masking was enabled but no config exists, create empty config
-      updatedConfig.masking_config = { edges: [] };
-    }
-    
-    // If position name changed, check if it conflicts with an existing config
-    if (originalPosition !== position.name) {
-      const existingConfig = area.camera_configs.find(
-        config => config !== area.camera_configs[configIndex] &&
-                config.camera_id === cameraId && 
-                config.position.name === position.name
+    try {
+      // Create updated camera configuration
+      const updatedConfig = {
+        position: position,
+        enable_heatmap: enableHeatmap,
+        heatmap_config: heatmapConfig,
+        enable_interpolation: enableInterpolation,
+        enable_masking: enableMasking,
+        masking_edges: enableMasking ? maskingEdges : undefined
+      };
+      
+      // Call API client to update camera configuration
+      const updatedProject = await apiClient.updateCameraConfig(
+        projectId, 
+        areaId, 
+        cameraId, 
+        originalPosition, 
+        updatedConfig
       );
       
-      if (existingConfig) {
-        alert(`Camera "${cameraId}" is already configured in position "${position.name}"`);
-        return;
-      }
+      // Update local state
+      setProject(updatedProject);
+    } catch (err) {
+      console.error("Failed to update camera configuration:", err);
+      setError("Failed to update camera configuration. Please try again later.");
     }
-    
-    // Update camera configuration (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs/${cameraId}/${originalPosition}`, {
-    //   method: 'PUT',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     position: position,
-    //     enable_heatmap: enableHeatmap,
-    //     heatmap_config: heatmapConfig,
-    //     enable_interpolation: enableInterpolation,
-    //     enable_masking: enableMasking,
-    //     masking_config: updatedConfig.masking_config
-    //   })
-    // });
-    
-    // Update local state
-    const updatedConfigs = [...area.camera_configs];
-    updatedConfigs[configIndex] = updatedConfig;
-    
-    setProject({
-      ...project,
-      areas: project.areas.map(area => 
-        area.id === areaId
-          ? { ...area, camera_configs: updatedConfigs }
-          : area
-      )
-    });
   };
 
   // Function to delete a camera configuration
-  const handleDeleteCameraConfig = (
+  const handleDeleteCameraConfig = async (
     areaId: string,
     cameraId: string,
     positionName: string
   ) => {
     if (!project) return;
     
-    // Find the area
-    const area = project.areas.find(area => area.id === areaId);
-    
-    if (!area) return;
-    
-    // Delete camera configuration (in a real app, this would be an API call)
-    // await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs/${cameraId}/${positionName}`, {
-    //   method: 'DELETE'
-    // });
-    
-    // Update local state
-    setProject({
-      ...project,
-      areas: project.areas.map(area => 
-        area.id === areaId
-          ? { 
-              ...area, 
-              camera_configs: area.camera_configs.filter(
-                config => !(config.camera_id === cameraId && config.position.name === positionName)
-              )
-            }
-          : area
-      )
-    });
+    try {
+      // Call API client to delete camera configuration
+      const updatedProject = await apiClient.deleteCameraConfig(
+        projectId, 
+        areaId, 
+        cameraId, 
+        positionName
+      );
+      
+      // Update local state
+      setProject(updatedProject);
+    } catch (err) {
+      console.error("Failed to delete camera configuration:", err);
+      setError("Failed to delete camera configuration. Please try again later.");
+    }
   };
 
   // Camera event handlers
