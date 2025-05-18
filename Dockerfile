@@ -27,7 +27,7 @@ RUN npm install -g pnpm
 WORKDIR /app  
   
 # Copy the built code from the builder stage to the runner stage  
-COPY --from=builder /app/next.config.mjs ./  
+COPY --from=builder /app/next.config.ts ./  
 COPY --from=builder /app/.next ./.next  
 COPY --from=builder /app/node_modules ./node_modules  
 COPY --from=builder /app/package.json ./package.json  
