@@ -48,8 +48,8 @@ export function AddCameraConfigDialog({
 }: AddCameraConfigDialogProps) {
   // Form state
   const [selectedCameraId, setSelectedCameraId] = useState<string>("");
-  const [id, setId] = useState<string>("");
-  const [name, setName] = useState<string>("");
+  const [configId, setConfigId] = useState<string>("");
+  const [configName, setConfigName] = useState<string>("");
   const [positionName, setPositionName] = useState<string>("");
   const [centerGroundPlaneX, setCenterGroundPlaneX] = useState<string>("");
   const [centerGroundPlaneY, setCenterGroundPlaneY] = useState<string>("");
@@ -68,6 +68,8 @@ export function AddCameraConfigDialog({
   
   // Validation state
   const [errors, setErrors] = useState<{
+    id?: string;
+    name?: string;
     camera?: string;
     position?: string;
     centerGroundPlane?: string;
@@ -82,12 +84,24 @@ export function AddCameraConfigDialog({
     
     // Validate form
     const newErrors: {
+      id?: string;
+      name?: string;
       camera?: string;
       position?: string;
       centerGroundPlane?: string;
       focalLength?: string;
       heatmap?: string;
     } = {};
+    
+    if (!configId.trim()) {
+      newErrors.id = "Configuration ID is required";
+    } else if (!/^[a-z0-9_]+$/.test(configId)) {
+      newErrors.id = "ID can only contain lowercase letters, numbers, and underscores";
+    }
+    
+    if (!configName.trim()) {
+      newErrors.name = "Configuration name is required";
+    }
     
     if (!selectedCameraId) {
       newErrors.camera = "Camera selection is required";
@@ -168,11 +182,10 @@ export function AddCameraConfigDialog({
       ];
     }
     
-    // Submit the form
     onAdd(
+      configId,
+      configName,
       selectedCameraId,
-      id,
-      name,
       position,
       enableHeatmap,
       enableInterpolation,
@@ -182,8 +195,8 @@ export function AddCameraConfigDialog({
     );
     
     // Reset form
-    setId("");
-    setName("");
+    setConfigId("");
+    setConfigName("");
     setSelectedCameraId("");
     setPositionName("");
     setCenterGroundPlaneX("");
@@ -236,6 +249,8 @@ export function AddCameraConfigDialog({
   const handleDialogChange = (open: boolean) => {
     if (!open) {
       // Reset form when dialog closes
+      setConfigId("");
+      setConfigName("");
       setSelectedCameraId("");
       setPositionName("");
       setCenterGroundPlaneX("");
@@ -276,6 +291,37 @@ export function AddCameraConfigDialog({
           
           <TabsContent value="basic" className="pt-4">
             <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="config-id" className={errors.id ? "text-red-500" : ""}>
+                  Configuration ID
+                </Label>
+                <Input
+                  id="config-id"
+                  value={configId}
+                  onChange={(e) => setConfigId(e.target.value)}
+                  placeholder="camera1_position1"
+                  className={errors.id ? "border-red-500" : ""}
+                />
+                {errors.id && <p className="text-xs text-red-500">{errors.id}</p>}
+                <p className="text-xs text-gray-500">
+                  Use lowercase letters, numbers, and underscores only
+                </p>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="config-name" className={errors.name ? "text-red-500" : ""}>
+                  Configuration Name
+                </Label>
+                <Input
+                  id="config-name"
+                  value={configName}
+                  onChange={(e) => setConfigName(e.target.value)}
+                  placeholder="Main Camera - Left Position"
+                  className={errors.name ? "border-red-500" : ""}
+                />
+                {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+              </div>
+            
               <div className="grid gap-2">
                 <Label htmlFor="camera-selection" className={errors.camera ? "text-red-500" : ""}>
                   Select Camera

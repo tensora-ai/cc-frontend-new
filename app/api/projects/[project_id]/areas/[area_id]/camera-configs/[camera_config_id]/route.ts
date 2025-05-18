@@ -8,14 +8,14 @@ import { getApiUrl, getApiHeaders } from "@/lib/api-config";
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { project_id: string; area_id: string; camera_id: string; position: string } }
+  { params }: { params: { project_id: string; area_id: string; camera_config_id: string } }
 ) {
   try {
-    const { project_id, area_id, camera_id, position } = params;
+    const { project_id, area_id, camera_config_id } = params;
     const body = await request.json();
     
     const response = await fetch(
-      getApiUrl(`projects/${project_id}/areas/${area_id}/camera-configs/${camera_id}/${position}`),
+      getApiUrl(`projects/${project_id}/areas/${area_id}/camera-configs/${camera_config_id}`),
       {
         method: "PUT",
         headers: getApiHeaders(),
@@ -44,13 +44,13 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { project_id: string; area_id: string; camera_id: string; position: string } }
+  { params }: { params: { project_id: string; area_id: string; camera_config_id: string } }
 ) {
   try {
-    const { project_id, area_id, camera_id, position } = params;
+    const { project_id, area_id, camera_config_id } = params;
     
     const response = await fetch(
-      getApiUrl(`projects/${project_id}/areas/${area_id}/camera-configs/${camera_id}/${position}`),
+      getApiUrl(`projects/${project_id}/areas/${area_id}/camera-configs/${camera_config_id}`),
       {
         method: "DELETE",
         headers: getApiHeaders(),

@@ -317,12 +317,12 @@ export default function ProjectDetailPage() {
   // Function to update a camera configuration
   const handleEditCameraConfig = async (
     areaId: string,
-    name: string,
+    configId: string,     // Changed from cameraId, originalPosition
+    configName: string,   // Added parameter
     cameraId: string,
-    originalPosition: string,
     position: Position,
     enableHeatmap: boolean,
-    enableInterpolation: boolean, 
+    enableInterpolation: boolean,
     enableMasking: boolean,
     maskingEdges?: Edge[],
     heatmapConfig?: [number, number, number, number],
@@ -332,22 +332,21 @@ export default function ProjectDetailPage() {
     try {
       // Create updated camera configuration
       const updatedConfig: CameraConfigUpdate = {
-        name: name,
+        name: configName,
         camera_id: cameraId,
-        position: position,
+        position,
         enable_heatmap: enableHeatmap,
         heatmap_config: heatmapConfig,
         enable_interpolation: enableInterpolation,
         enable_masking: enableMasking,
-        masking_edges: enableMasking ? maskingEdges : undefined
+        masking_edges: enableMasking && maskingEdges ? maskingEdges : undefined
       };
       
       // Call API client to update camera configuration
       const updatedProject = await apiClient.updateCameraConfig(
         projectId, 
         areaId, 
-        cameraId, 
-        originalPosition, 
+        configId,   // Just passing the config ID now
         updatedConfig
       );
       
@@ -362,8 +361,7 @@ export default function ProjectDetailPage() {
   // Function to delete a camera configuration
   const handleDeleteCameraConfig = async (
     areaId: string,
-    cameraId: string,
-    positionName: string
+    configId: string    // Just use config ID
   ) => {
     if (!project) return;
     
@@ -372,8 +370,7 @@ export default function ProjectDetailPage() {
       const updatedProject = await apiClient.deleteCameraConfig(
         projectId, 
         areaId, 
-        cameraId, 
-        positionName
+        configId     // Just use the config ID
       );
       
       // Update local state

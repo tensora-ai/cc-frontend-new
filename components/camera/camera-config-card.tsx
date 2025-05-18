@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Position } from "@/models/project";
 
 interface CameraConfigCardProps {
+  name: string;
   cameraName: string;
   position: Position;
   enableHeatmap: boolean;
@@ -16,6 +17,7 @@ interface CameraConfigCardProps {
 }
 
 export function CameraConfigCard({
+  name,
   cameraName,
   position,
   enableHeatmap,
@@ -33,10 +35,15 @@ export function CameraConfigCard({
           <div className="flex items-start">
             <Camera className="h-5 w-5 text-[var(--tensora-medium)] mt-0.5 mr-2" />
             <div>
-              <h3 className="font-medium text-[var(--tensora-dark)]">{cameraName}</h3>
-              <div className="flex items-center text-sm text-gray-500 mt-0.5">
-                <MapPin className="h-3 w-3 mr-1" /> 
-                Position: <span className="font-medium ml-1">{position.name}</span>
+              <h3 className="font-medium text-[var(--tensora-dark)]">{name}</h3>
+              <div className="flex flex-col text-sm text-gray-500 mt-0.5">
+                <div className="flex items-center">
+                  <MapPin className="h-3 w-3 mr-1" /> 
+                  Position: <span className="font-medium ml-1">{position.name}</span>
+                </div>
+                <div className="mt-1">
+                  Camera: {cameraName}
+                </div>
               </div>
             </div>
           </div>

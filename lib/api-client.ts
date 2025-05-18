@@ -6,7 +6,7 @@ import { Project, ProjectCreate, CameraCreate, CameraUpdate, AreaCreate, AreaUpd
  */
 class ApiClient {
   // Project Methods
-  
+
   /**
    * Fetch all projects
    */
@@ -15,16 +15,16 @@ class ApiClient {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to fetch projects');
     }
-    
+
     const data = await response.json();
     return data.projects;
   }
-  
+
   /**
    * Fetch a project by ID
    */
@@ -33,15 +33,15 @@ class ApiClient {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to fetch project');
     }
-    
+
     return await response.json();
   }
-  
+
   /**
    * Create a new project
    */
@@ -51,15 +51,15 @@ class ApiClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(project),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to create project');
     }
-    
+
     return await response.json();
   }
-  
+
   /**
    * Delete a project
    */
@@ -68,17 +68,17 @@ class ApiClient {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to delete project');
     }
-    
+
     return true;
   }
-  
+
   // Camera Methods
-  
+
   /**
    * Add a camera to a project
    */
@@ -88,15 +88,15 @@ class ApiClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(camera),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to add camera');
     }
-    
+
     return await response.json();
   }
-  
+
   /**
    * Update a camera
    */
@@ -106,15 +106,15 @@ class ApiClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(camera),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to update camera');
     }
-    
+
     return await response.json();
   }
-  
+
   /**
    * Delete a camera
    */
@@ -123,17 +123,17 @@ class ApiClient {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to delete camera');
     }
-    
+
     return await response.json();
   }
-  
+
   // Area Methods
-  
+
   /**
    * Add an area to a project
    */
@@ -143,15 +143,15 @@ class ApiClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(area),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to add area');
     }
-    
+
     return await response.json();
   }
-  
+
   /**
    * Update an area
    */
@@ -161,15 +161,15 @@ class ApiClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(area),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to update area');
     }
-    
+
     return await response.json();
   }
-  
+
   /**
    * Delete an area
    */
@@ -178,17 +178,17 @@ class ApiClient {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to delete area');
     }
-    
+
     return await response.json();
   }
-  
+
   // Camera Configuration Methods
-  
+
   /**
    * Add a camera configuration to an area
    */
@@ -198,69 +198,67 @@ class ApiClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to add camera configuration');
     }
-    
+
     return await response.json();
   }
-  
+
   /**
    * Update a camera configuration
    */
   async updateCameraConfig(
-    projectId: string, 
-    areaId: string, 
-    cameraId: string, 
-    position: string, 
+    projectId: string,
+    areaId: string,
+    configId: string, // Use configId instead of cameraId & position
     config: CameraConfigUpdate
   ): Promise<Project> {
     const response = await fetch(
-      `/api/projects/${projectId}/areas/${areaId}/camera-configs/${cameraId}/${position}`,
+      `/api/projects/${projectId}/areas/${areaId}/camera-configs/${configId}`,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       }
     );
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to update camera configuration');
     }
-    
+
     return await response.json();
   }
-  
+
   /**
    * Delete a camera configuration
    */
   async deleteCameraConfig(
-    projectId: string, 
-    areaId: string, 
-    cameraId: string, 
-    position: string
+    projectId: string,
+    areaId: string,
+    configId: string // Use configId instead of cameraId & position
   ): Promise<Project> {
     const response = await fetch(
-      `/api/projects/${projectId}/areas/${areaId}/camera-configs/${cameraId}/${position}`,
+      `/api/projects/${projectId}/areas/${areaId}/camera-configs/${configId}`,
       {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
       }
     );
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to delete camera configuration');
     }
-    
+
     return await response.json();
   }
-  
+
   // Predictions Methods
-  
+
   /**
    * Aggregate time series predictions
    */
@@ -270,17 +268,17 @@ class ApiClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to aggregate predictions');
     }
-    
+
     return await response.json();
   }
-  
+
   // Images Methods
-  
+
   /**
    * Get image URL
    */
