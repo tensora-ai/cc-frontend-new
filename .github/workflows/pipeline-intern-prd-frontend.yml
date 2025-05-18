@@ -63,7 +63,6 @@ jobs:
 
       - name: Wait for 1 Minute
         run: sleep 60s
-        shell: bash
   
       - name: Restart Web App
         run: |
