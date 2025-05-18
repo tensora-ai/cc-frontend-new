@@ -41,7 +41,7 @@ jobs:
 
     defaults:
       run:
-        shell: bashpip
+        shell: bash
 
     steps:
       - name: Checkout Repository
