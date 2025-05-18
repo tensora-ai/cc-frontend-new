@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Camera, MapPin, Edit, BarChart } from "lucide-react";
+import { Camera, MapPin, Edit } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -522,7 +522,7 @@ export function AddCameraConfigDialog({
                         No masking points defined
                       </p>
                       <p className="text-xs text-yellow-600 mt-1">
-                        Click "Configure Masking" to define the counting area
+                        Click &ldquo;Configure Masking&rdquo; to define the counting area
                       </p>
                     </div>
                   )}

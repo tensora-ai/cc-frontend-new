@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Camera, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Project, CameraConfig, Edge, CountingModel, ModelSchedule, Position } from "@/models/project";
+import { Project, Edge, CountingModel, ModelSchedule, Position, CameraConfig } from "@/models/project";
 import { apiClient } from "@/lib/api-client";
 
 // Import our custom components
@@ -56,7 +56,7 @@ export default function ProjectDetailPage() {
   const [selectedArea, setSelectedArea] = useState<{
     id: string;
     name: string;
-    camera_configs: any[];
+    camera_configs: CameraConfig[];
   } | null>(null);
 
   // Load project data

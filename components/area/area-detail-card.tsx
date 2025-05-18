@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, Map, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, Map, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CameraConfigCard } from "@/components/camera/camera-config-card";
@@ -196,7 +196,6 @@ export function AreaDetailCard({
                 return (
                   <div key={`${config.camera_id}-${config.position.name}-${index}`} className="relative">
                     <CameraConfigCard
-                      cameraId={config.camera_id}
                       cameraName={cameraName}
                       position={config.position}
                       enableHeatmap={config.enable_heatmap}

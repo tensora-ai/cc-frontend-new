@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Check, X, Save, Trash, Upload, Info, Image } from "lucide-react";
+import { Check, X, Save, Trash, Upload, Info, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Edge } from "@/models/project";
 
@@ -414,12 +414,6 @@ export function MaskingEditor({
       setEdges(newEdges);
     }
   };
-  
-  // We no longer need these canvas-specific handlers since we're using document-wide event listeners
-  // when dragging, but we still declare empty functions to keep the component interface consistent
-  const handleMouseMove = () => {};
-  const handleMouseUp = () => {};
-  const handleMouseLeave = () => {};
 
   // Handle right-click to delete vertex
   const handleContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -454,7 +448,7 @@ export function MaskingEditor({
     
     // Load the image
     const reader = new FileReader();
-    reader.onload = (event: ProgressEvent<FileReader>) => {
+    reader.onload = (_: ProgressEvent<FileReader>) => {
       // Use the window.Image constructor to avoid TypeScript errors
       const img = new window.Image();
       img.onload = () => {
@@ -579,7 +573,7 @@ export function MaskingEditor({
                   onClick={handleToggleOverlay}
                   className="flex items-center"
                 >
-                  <Image className="h-3.5 w-3.5 mr-1.5" />
+                  <ImageIcon className="h-3.5 w-3.5 mr-1.5" />
                   {showOverlay ? "Remove Contrast" : "Add Contrast"}
                 </Button>
               )}

@@ -4,7 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Position } from "@/models/project";
 
 interface CameraConfigCardProps {
-  cameraId: string;
   cameraName: string;
   position: Position;
   enableHeatmap: boolean;
@@ -17,7 +16,6 @@ interface CameraConfigCardProps {
 }
 
 export function CameraConfigCard({
-  cameraId,
   cameraName,
   position,
   enableHeatmap,

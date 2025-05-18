@@ -17,6 +17,8 @@ export interface MaskingConfig {
 export type HeatmapConfig = [number, number, number, number];
 
 export interface CameraConfig {
+  id: string;
+  name: string;
   camera_id: string;
   position: Position;
   enable_heatmap: boolean;
@@ -108,6 +110,8 @@ export interface AreaUpdate {
 }
 
 export interface CameraConfigCreate {
+  id: string;
+  name: string;
   camera_id: string;
   position: Position;
   enable_heatmap: boolean;
@@ -118,6 +122,8 @@ export interface CameraConfigCreate {
 }
 
 export interface CameraConfigUpdate {
+  name: string;
+  camera_id: string;
   position: Position;
   enable_heatmap: boolean;
   heatmap_config?: HeatmapConfig;

@@ -167,7 +167,7 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
             Add New Camera
           </DialogTitle>
           <DialogDescription>
-            Add a new camera to your inventory. You'll be able to configure it in monitoring areas later.
+            Add a new camera to your inventory. You&apos;ll be able to configure it in monitoring areas later.
           </DialogDescription>
         </DialogHeader>
 
