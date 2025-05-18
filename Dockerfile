@@ -1,5 +1,5 @@
 # Stage 1: Building the code  
-FROM node:20.19.2-alpine as builder
+FROM node:20.19.2-alpine AS builder
 
 # Install pnpm
 RUN npm install -g pnpm
@@ -19,7 +19,7 @@ COPY . .
 RUN pnpm run build  
   
 # Stage 2: Run the Next.js application  
-FROM node:20.19.2-alpine as runner  
+FROM node:20.19.2-alpine AS runner
 
 # Install pnpm
 RUN npm install -g pnpm
