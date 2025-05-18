@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Camera, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Project, Edge, CountingModel, ModelSchedule, Position, CameraConfig } from "@/models/project";
+import { Project, Edge, CountingModel, ModelSchedule, Position, CameraConfig, CameraConfigCreate, CameraConfigUpdate } from "@/models/project";
 import { apiClient } from "@/lib/api-client";
 
 // Import our custom components
@@ -277,6 +277,8 @@ export default function ProjectDetailPage() {
   // Function to add a camera configuration to an area
   const handleAddCameraConfig = async (
     areaId: string,
+    id: string,
+    name: string,
     cameraId: string,
     position: Position,
     enableHeatmap: boolean,
@@ -289,7 +291,9 @@ export default function ProjectDetailPage() {
     
     try {
       // Create new camera configuration
-      const newConfig = {
+      const newConfig: CameraConfigCreate = {
+        id: id,
+        name: name,
         camera_id: cameraId,
         position: position,
         enable_heatmap: enableHeatmap,
@@ -313,6 +317,7 @@ export default function ProjectDetailPage() {
   // Function to update a camera configuration
   const handleEditCameraConfig = async (
     areaId: string,
+    name: string,
     cameraId: string,
     originalPosition: string,
     position: Position,
@@ -326,7 +331,9 @@ export default function ProjectDetailPage() {
     
     try {
       // Create updated camera configuration
-      const updatedConfig = {
+      const updatedConfig: CameraConfigUpdate = {
+        name: name,
+        camera_id: cameraId,
         position: position,
         enable_heatmap: enableHeatmap,
         heatmap_config: heatmapConfig,

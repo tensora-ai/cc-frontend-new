@@ -7,10 +7,10 @@ import { getApiUrl, getApiHeaders } from "@/lib/api-config";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { image_name: string } }
+  context: { params: { image_name: string } }
 ) {
   try {
-    const { image_name } = params;
+    const { image_name } = context.params;
     
     const response = await fetch(getApiUrl(`images/${image_name}`), {
       method: "GET",

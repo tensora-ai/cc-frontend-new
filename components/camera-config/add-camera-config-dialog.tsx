@@ -27,6 +27,8 @@ interface AddCameraConfigDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (
+    id: string,
+    name: string,
     cameraId: string,
     position: Position,
     enableHeatmap: boolean,
@@ -46,6 +48,8 @@ export function AddCameraConfigDialog({
 }: AddCameraConfigDialogProps) {
   // Form state
   const [selectedCameraId, setSelectedCameraId] = useState<string>("");
+  const [id, setId] = useState<string>("");
+  const [name, setName] = useState<string>("");
   const [positionName, setPositionName] = useState<string>("");
   const [centerGroundPlaneX, setCenterGroundPlaneX] = useState<string>("");
   const [centerGroundPlaneY, setCenterGroundPlaneY] = useState<string>("");
@@ -167,6 +171,8 @@ export function AddCameraConfigDialog({
     // Submit the form
     onAdd(
       selectedCameraId,
+      id,
+      name,
       position,
       enableHeatmap,
       enableInterpolation,
@@ -176,6 +182,8 @@ export function AddCameraConfigDialog({
     );
     
     // Reset form
+    setId("");
+    setName("");
     setSelectedCameraId("");
     setPositionName("");
     setCenterGroundPlaneX("");

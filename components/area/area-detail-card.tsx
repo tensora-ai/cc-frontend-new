@@ -17,6 +17,8 @@ interface AreaDetailCardProps {
   onBack: () => void;
   onAddCameraConfig: (
     areaId: string,
+    id: string,
+    name: string,
     cameraId: string,
     position: Position,
     enableHeatmap: boolean,
@@ -27,6 +29,7 @@ interface AreaDetailCardProps {
   ) => void;
   onEditCameraConfig: (
     areaId: string,
+    name: string,
     cameraId: string,
     originalPosition: string,
     position: Position,
@@ -96,6 +99,8 @@ export function AreaDetailCard({
 
   // Handle adding a camera configuration
   const handleAddCameraConfig = (
+    id: string,
+    name: string,
     cameraId: string,
     position: Position,
     enableHeatmap: boolean,
@@ -105,6 +110,8 @@ export function AreaDetailCard({
     heatmapConfig?: [number, number, number, number],
   ) => {
     onAddCameraConfig(
+      id,
+      name,
       areaId,
       cameraId,
       position,

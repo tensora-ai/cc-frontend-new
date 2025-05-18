@@ -1,4 +1,5 @@
-import { Project, ProjectCreate, CameraCreate, CameraUpdate, AreaCreate, AreaUpdate } from "@/models/project";
+import { AggregatePredictionsRequest } from "@/models/prediction";
+import { Project, ProjectCreate, CameraCreate, CameraUpdate, AreaCreate, AreaUpdate, CameraConfigCreate, CameraConfigUpdate } from "@/models/project";
 
 /**
  * API client for interacting with the backend via the Next.js API routes
@@ -191,7 +192,7 @@ class ApiClient {
   /**
    * Add a camera configuration to an area
    */
-  async addCameraConfig(projectId: string, areaId: string, config: any): Promise<Project> {
+  async addCameraConfig(projectId: string, areaId: string, config: CameraConfigCreate): Promise<Project> {
     const response = await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -214,7 +215,7 @@ class ApiClient {
     areaId: string, 
     cameraId: string, 
     position: string, 
-    config: any
+    config: CameraConfigUpdate
   ): Promise<Project> {
     const response = await fetch(
       `/api/projects/${projectId}/areas/${areaId}/camera-configs/${cameraId}/${position}`,
@@ -263,7 +264,7 @@ class ApiClient {
   /**
    * Aggregate time series predictions
    */
-  async aggregatePredictions(data: any): Promise<any> {
+  async aggregatePredictions(data: AggregatePredictionsRequest): Promise<AggregatePredictionsRequest> {
     const response = await fetch('/api/predictions/aggregate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
