@@ -8,10 +8,10 @@ import { getApiUrl, getApiHeaders } from "@/lib/api-config";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { project_id: string } }
+  { params }: { params: Promise<{ project_id: string }> }
 ) {
   try {
-    const { project_id } = params;
+    const { project_id } = await params;
     
     const response = await fetch(getApiUrl(`projects/${project_id}`), {
       method: "GET",
@@ -40,10 +40,10 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { project_id: string } }
+  { params }: { params: Promise<{ project_id: string }> }
 ) {
   try {
-    const { project_id } = params;
+    const { project_id } = await params;
     
     const response = await fetch(getApiUrl(`projects/${project_id}`), {
       method: "DELETE",

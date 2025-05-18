@@ -8,10 +8,10 @@ import { getApiUrl, getApiHeaders } from "@/lib/api-config";
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { project_id: string; area_id: string; camera_config_id: string } }
+  { params }: { params: Promise<{ project_id: string; area_id: string; camera_config_id: string }> }
 ) {
   try {
-    const { project_id, area_id, camera_config_id } = params;
+    const { project_id, area_id, camera_config_id } = await params;
     const body = await request.json();
     
     const response = await fetch(
@@ -44,10 +44,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { project_id: string; area_id: string; camera_config_id: string } }
+  { params }: { params: Promise<{ project_id: string; area_id: string; camera_config_id: string }> }
 ) {
   try {
-    const { project_id, area_id, camera_config_id } = params;
+    const { project_id, area_id, camera_config_id } = await params;
     
     const response = await fetch(
       getApiUrl(`projects/${project_id}/areas/${area_id}/camera-configs/${camera_config_id}`),

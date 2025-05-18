@@ -8,10 +8,10 @@ import { getApiUrl, getApiHeaders } from "@/lib/api-config";
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { project_id: string; camera_id: string } }
+  { params }: { params: Promise<{ project_id: string; camera_id: string }> }
 ) {
   try {
-    const { project_id, camera_id } = params;
+    const { project_id, camera_id } = await params;
     const body = await request.json();
     
     const response = await fetch(getApiUrl(`projects/${project_id}/cameras/${camera_id}`), {
@@ -41,10 +41,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { project_id: string; camera_id: string } }
+  { params }: { params: Promise<{ project_id: string; camera_id: string }> }
 ) {
   try {
-    const { project_id, camera_id } = params;
+    const { project_id, camera_id } = await params;
     
     const response = await fetch(getApiUrl(`projects/${project_id}/cameras/${camera_id}`), {
       method: "DELETE",

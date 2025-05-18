@@ -7,10 +7,10 @@ import { getApiUrl, getApiHeaders } from "@/lib/api-config";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { project_id: string; area_id: string } }
+  { params }: { params: Promise<{ project_id: string; area_id: string }> }
 ) {
   try {
-    const { project_id, area_id } = params;
+    const { project_id, area_id } = await params;
     const body = await request.json();
     
     const response = await fetch(getApiUrl(`projects/${project_id}/areas/${area_id}/camera-configs`), {
