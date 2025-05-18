@@ -3,7 +3,7 @@ export const API_CONFIG = {
   API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1",
   
   // API Key for authentication
-  API_KEY: process.env.API_KEY || "your-api-key-here",
+  API_KEY: process.env.NEXT_PUBLIC_API_KEY || "your-api-key-here",
   
   // Request timeout in milliseconds
   TIMEOUT: 30000,

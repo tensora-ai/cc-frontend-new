@@ -1,0 +1,6 @@
+subscription_id  = "ef3ac21e-bc8a-4281-848b-3e98aab8f89e"
+location         = "North Europe"
+customer         = "intern"
+environment      = "prd"
+backend_base_url = "https://app-count-intern-prd-backend.azurewebsites.net/api/v1"
+backend_api_key  = "xejbndlhntftpljr"
