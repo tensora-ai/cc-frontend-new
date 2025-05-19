@@ -42,7 +42,7 @@ function generateSampleImages(projectId: string, areaId: string, requestTime: Da
   const images: CameraImage[] = [];
   
   // Camera IDs based on area
-  const cameraPrefixes = {
+  const cameraPrefixes: { [key: string]: string } = {
     'faster': 'faster_',
     'harder': 'harder_',
     'louder': 'louder_',
@@ -55,7 +55,7 @@ function generateSampleImages(projectId: string, areaId: string, requestTime: Da
   const positions = ['left', 'right', 'center', 'standard'];
   
   // Get camera prefix for this area
-  const prefix = (cameraPrefixes as any)[areaId] || 'camera_';
+  const prefix = cameraPrefixes[areaId] || 'camera_';
   
   // Create sample images
   for (let i = 0; i < numImages; i++) {

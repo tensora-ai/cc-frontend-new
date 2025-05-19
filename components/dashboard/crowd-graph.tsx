@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
-import { TimeSeriesPoint } from "@/models/dashboard";
+import { TimeSeriesPoint, TimeSeriesPointWithLocalTime } from "@/models/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, TooltipProps } from "recharts";
 
@@ -14,7 +14,7 @@ interface CrowdGraphProps {
 
 export function CrowdGraph({ data, isLoading }: CrowdGraphProps) {
   // Prepare chart data by parsing ISO dates and formatting
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<TimeSeriesPointWithLocalTime[]>([]);
   
   useEffect(() => {
     if (!data || data.length === 0) return;
@@ -34,7 +34,7 @@ export function CrowdGraph({ data, isLoading }: CrowdGraphProps) {
         count: point.value,
         timeFormatted: format(localTime, "HH:mm"),
         // Use the localTimestamp if available (from the enhanced TimeSeriesPoint)
-        localTimeString: (point as any).localTimestamp || format(localTime, "yyyy-MM-dd HH:mm:ss")
+        localTimeString: (point as TimeSeriesPoint).timestamp || format(localTime, "yyyy-MM-dd HH:mm:ss")
       };
     });
     
@@ -52,7 +52,7 @@ export function CrowdGraph({ data, isLoading }: CrowdGraphProps) {
   };
   
   // Custom tooltip component
-  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border rounded shadow-sm">

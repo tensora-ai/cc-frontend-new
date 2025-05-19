@@ -7,6 +7,13 @@ export interface TimeSeriesPoint {
   value: number;
 }
 
+export interface TimeSeriesPointWithLocalTime {
+  time: Date,
+  count: number,
+  timeFormatted: string,
+  localTimeString: string
+}
+
 export interface AggregateTimeSeriesRequest {
   project: string;
   area: string;

@@ -6,6 +6,6 @@ export const metadata: Metadata = {
   description: "Real-time crowd counting dashboard for monitoring and visualization.",
 };
 
-export default function Page({ params }: { params: { project_id: string } }) {
+export default function Page() {
   return <DashboardPage />;
 }

@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
-import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { CameraImage } from "@/models/dashboard";
 import { ImageOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
 
 interface ImageDisplayProps {
   projectId: string;
@@ -90,7 +91,8 @@ export function ImageDisplay({
       
       // Format with local time zone
       return formatInTimeZone(utcDate, timeZone, "MMM d, yyyy HH:mm:ss");
-    } catch (e) {
+    } catch (error) {
+      console.error("Error formatting timestamp:", error);
       return "Unknown time";
     }
   };
@@ -136,9 +138,11 @@ export function ImageDisplay({
       <div className="relative">
         {/* Image */}
         <div className="w-full aspect-video rounded-lg overflow-hidden bg-gray-100">
-          <img
+          <Image
             src={currentImage.url}
             alt={`Camera view from ${currentImage.camera_id}`}
+            width={800}
+            height={450}
             className="w-full h-full object-cover"
           />
         </div>

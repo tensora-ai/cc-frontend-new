@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AggregateTimeSeriesRequest, AggregateTimeSeriesResponse } from "@/models/dashboard";
+import { AggregateTimeSeriesRequest, AggregateTimeSeriesResponse, TimeSeriesPoint } from "@/models/dashboard";
 
 export async function POST(req: NextRequest) {
   try {
@@ -80,12 +80,11 @@ function generateSampleTimeSeriesData(endDate: Date, lookbackHours: number) {
 }
 
 // Helper function to apply moving average smoothing
-function applyMovingAverageSmoothing(data: any[], halfWindowSize: number) {
+function applyMovingAverageSmoothing(data: TimeSeriesPoint[], halfWindowSize: number) {
   if (halfWindowSize <= 0 || data.length <= 1) {
     return data;
   }
   
-  const windowSize = 2 * halfWindowSize + 1;
   const smoothedData = [];
   
   for (let i = 0; i < data.length; i++) {

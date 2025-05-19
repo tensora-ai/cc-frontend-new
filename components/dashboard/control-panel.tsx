@@ -35,11 +35,6 @@ export function ControlPanel({
   // Get the local timezone
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   
-  // Format time as HH:MM
-  const formattedTime = useMemo(() => {
-    return format(date, "HH:mm");
-  }, [date]);
-  
   // Format date as YYYY-MM-DD
   const formattedDate = useMemo(() => {
     return format(date, "yyyy-MM-dd");
