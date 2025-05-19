@@ -34,7 +34,7 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/public ./public
   
 # If your Next.js app is not listening on the default port 3000, you can set a different port here  
-ENV PORT 3000  
+ENV PORT=3000  
   
 # Expose the port the app runs on  
 EXPOSE $PORT  
