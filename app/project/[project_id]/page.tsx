@@ -381,11 +381,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Camera event handlers
-  const handleOpenDashboard = () => {
-    alert("Dashboard would open here");
-  };
-
   const handleOpenAddCameraDialog = () => {
     setAddCameraDialogOpen(true);
   };
@@ -514,7 +509,7 @@ export default function ProjectDetailPage() {
 
       {/* Project dashboard button */}
       <div className="mb-10">
-        <DashboardButton onClick={handleOpenDashboard} />
+        <DashboardButton projectId={projectId} />
       </div>
 
       {/* Conditional rendering based on whether an area is selected */}

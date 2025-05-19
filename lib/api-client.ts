@@ -1,6 +1,5 @@
-import { AggregatePredictionsRequest } from "@/models/prediction";
 import { Project, ProjectCreate, CameraCreate, CameraUpdate, AreaCreate, AreaUpdate, CameraConfigCreate, CameraConfigUpdate } from "@/models/project";
-
+import { AggregateTimeSeriesRequest, AggregateTimeSeriesResponse } from "@/models/dashboard";
 /**
  * API client for interacting with the backend via the Next.js API routes
  */
@@ -262,7 +261,7 @@ class ApiClient {
   /**
    * Aggregate time series predictions
    */
-  async aggregatePredictions(data: AggregatePredictionsRequest): Promise<AggregatePredictionsRequest> {
+  async aggregatePredictions(data: AggregateTimeSeriesRequest): Promise<AggregateTimeSeriesResponse> {
     const response = await fetch('/api/predictions/aggregate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
