@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModelScheduler } from "@/components/camera/model-scheduler";
 import { CountingModel, ModelSchedule } from "@/models/project";
+import { checkScheduleOverlaps } from "@/lib/schedule-utils";
 
 interface AddCameraDialogProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
     resolution?: string;
     sensor?: string;
     coordinates?: string;
+    schedules?: string;
   }>({});
 
   // Handle form submission
@@ -63,13 +65,13 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
     // Reset errors
     setErrors({});
 
-    // Validate form
     const newErrors: {
       id?: string;
       name?: string;
       resolution?: string;
       sensor?: string;
       coordinates?: string;
+      schedules?: string;
     } = {};
 
     if (!cameraId.trim()) {
@@ -121,6 +123,14 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
         newErrors.coordinates = "Z coordinate must be a number";
       } else {
         coordinates3d = [x, y, z];
+      }
+    }
+
+    // Add schedule overlap validation
+    if (modelSchedules.length > 1) {
+      const { hasOverlap, conflictInfo } = checkScheduleOverlaps(modelSchedules);
+      if (hasOverlap) {
+        newErrors.schedules = `Schedule conflict: ${conflictInfo}`;
       }
     }
 
@@ -326,6 +336,12 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
               onDefaultModelChange={setDefaultModel}
               onSchedulesChange={setModelSchedules}
             />
+
+            {errors.schedules && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
+                {errors.schedules}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 
