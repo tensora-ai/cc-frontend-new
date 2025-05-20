@@ -51,9 +51,8 @@ export default function DashboardPage() {
   
   // Handle date changes from control panel - these are already in UTC from the control panel
   const handleDateChange = (newDate: Date) => {
-    // Convert the UTC date to local time for UI display
-    const localDate = toZonedTime(newDate, timeZone);
-    setSelectedDate(localDate);
+    // No conversion needed as the date is already in local time
+    setSelectedDate(newDate);
   };
   
   // Load project data

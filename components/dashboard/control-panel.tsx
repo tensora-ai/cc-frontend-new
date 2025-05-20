@@ -44,16 +44,14 @@ export function ControlPanel({
   const [hour, setHour] = useState(date.getHours());
   const [minute, setMinute] = useState(date.getMinutes());
   
-  // Update date when time changes - convert to UTC for the parent component
   const handleTimeChange = (newHour: number, newMinute: number) => {
     // Create a new local date with the updated time
     const newLocalDate = new Date(date);
     newLocalDate.setHours(newHour);
     newLocalDate.setMinutes(newMinute);
     
-    // Convert to UTC before passing back to parent
-    const newUtcDate = fromZonedTime(newLocalDate, timeZone);
-    onDateChange(newUtcDate);
+    // Pass the local date directly to parent - no UTC conversion
+    onDateChange(newLocalDate);
   };
   
   // Handle date selection - convert to UTC for the parent component
@@ -65,16 +63,14 @@ export function ControlPanel({
     newLocalDate.setHours(hour);
     newLocalDate.setMinutes(minute);
     
-    // Convert to UTC before passing back to parent
-    const newUtcDate = fromZonedTime(newLocalDate, timeZone);
-    onDateChange(newUtcDate);
+    // Pass the local date directly to parent - no UTC conversion
+    onDateChange(newLocalDate);
   };
   
   // Handle reset to current time - convert to UTC
   const handleResetToCurrentTime = () => {
     const now = new Date();
-    const nowUtc = fromZonedTime(now, timeZone);
-    onDateChange(nowUtc);
+    onDateChange(now);
     
     // Update local state
     setHour(now.getHours());
