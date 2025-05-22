@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ImageOff, RefreshCw } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 
 interface ImageDisplayProps {

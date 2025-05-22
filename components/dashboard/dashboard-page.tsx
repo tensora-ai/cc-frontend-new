@@ -302,7 +302,6 @@ export default function DashboardPage() {
     
     return cameraConfigs.map((config) => {
       // Find the camera for this config to get the name
-      const camera = project.cameras.find(c => c.id === config.camera_id);
       const displayTimestamp = getDisplayTimestamp();
       
       return (

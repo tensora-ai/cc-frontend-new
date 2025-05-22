@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
-import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart2, FileWarning, RefreshCw } from "lucide-react";
 import Image from "next/image";
 
