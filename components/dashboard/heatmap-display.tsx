@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart2, FileWarning } from "lucide-react";
+import { BarChart2, FileWarning, RefreshCw } from "lucide-react";
 import Image from "next/image";
 
 interface HeatmapDisplayProps {
@@ -13,6 +13,7 @@ interface HeatmapDisplayProps {
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
+  forceLoading?: boolean; // New prop to force loading state
 }
 
 export function HeatmapDisplay({
@@ -20,7 +21,8 @@ export function HeatmapDisplay({
   areaId,
   cameraId,
   positionId,
-  timestamp
+  timestamp,
+  forceLoading = false
 }: HeatmapDisplayProps) {
   // State for heatmap image URL (created from blob) and loading
   const [heatmapUrl, setHeatmapUrl] = useState<string | null>(null);
@@ -80,6 +82,19 @@ export function HeatmapDisplay({
     };
   }, [projectId, areaId, cameraId, positionId, timestamp]);
   
+  // Handle force loading
+  useEffect(() => {
+    if (forceLoading) {
+      setLoading(true);
+      // Reset loading state after a brief delay
+      const timeoutId = setTimeout(() => {
+        setLoading(false);
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [forceLoading]);
+  
   // Format timestamp for display in local time
   const formatTimestamp = (isoString: string) => {
     try {
@@ -100,8 +115,11 @@ export function HeatmapDisplay({
   // Loading state
   if (loading) {
     return (
-      <div className="w-full aspect-video">
-        <Skeleton className="w-full h-full" />
+      <div className="w-full aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 text-gray-400 mx-auto mb-2 animate-spin" />
+          <p className="text-gray-500 text-sm">Loading heatmap...</p>
+        </div>
       </div>
     );
   }
@@ -146,15 +164,6 @@ export function HeatmapDisplay({
       {/* Timestamp */}
       <div className="mt-2 text-xs text-gray-500">
         Captured: {formatTimestamp(captureTimestamp)}
-      </div>
-      
-      {/* Legend for heatmap values */}
-      <div className="mt-1">
-        <div className="flex justify-between items-center text-xs text-gray-500">
-          <span>Low Density</span>
-          <span>High Density</span>
-        </div>
-        <div className="h-2 w-full rounded-full mt-1 bg-gradient-to-r from-purple-900 via-blue-500 via-green-500 to-yellow-300" />
       </div>
     </div>
   );

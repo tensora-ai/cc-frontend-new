@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Calendar, Clock, RefreshCw } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Calendar, Clock, RefreshCw, Play } from "lucide-react";
 import { format } from "date-fns";
 import { 
   Popover,
@@ -20,6 +20,9 @@ interface ControlPanelProps {
   lookbackHours: number;
   onLookbackChange: (hours: number) => void;
   onReset: () => void;
+  onApply?: () => void;  // New apply function
+  loading?: boolean;     // Loading state
+  showApplyButton?: boolean; // Whether to show apply button
 }
 
 export function ControlPanel({
@@ -27,7 +30,10 @@ export function ControlPanel({
   onDateChange,
   lookbackHours,
   onLookbackChange,
-  onReset
+  onReset,
+  onApply,
+  loading = false,
+  showApplyButton = false
 }: ControlPanelProps) { 
   // Format date as YYYY-MM-DD
   const formattedDate = useMemo(() => {
@@ -37,6 +43,12 @@ export function ControlPanel({
   // State for time values - initialize with local date
   const [hour, setHour] = useState(date.getHours());
   const [minute, setMinute] = useState(Math.floor(date.getMinutes() / 5) * 5); // Round to nearest 5 minutes
+  
+  // Sync time pickers when date changes (e.g., from reset)
+  useEffect(() => {
+    setHour(date.getHours());
+    setMinute(Math.floor(date.getMinutes() / 5) * 5);
+  }, [date]);
   
   const handleTimeChange = (newHour: number, newMinute: number) => {
     // Create a new local date with the updated time
@@ -78,6 +90,7 @@ export function ControlPanel({
               <Button 
                 variant="outline" 
                 className="w-full justify-start text-left font-normal h-10"
+                disabled={loading}
               >
                 <Calendar className="mr-2 h-4 w-4" />
                 {formattedDate}
@@ -108,6 +121,7 @@ export function ControlPanel({
                 setHour(newHour);
                 handleTimeChange(newHour, minute);
               }}
+              disabled={loading}
             >
               <SelectTrigger className="w-24">
                 <SelectValue placeholder="Hour" />
@@ -131,6 +145,7 @@ export function ControlPanel({
                 setMinute(newMinute);
                 handleTimeChange(hour, newMinute);
               }}
+              disabled={loading}
             >
               <SelectTrigger className="w-24">
                 <SelectValue placeholder="Minute" />
@@ -161,19 +176,40 @@ export function ControlPanel({
             step={1}
             onValueChange={(values) => onLookbackChange(values[0])}
             className="w-full"
+            disabled={loading}
           />
         </div>
         
-        {/* Reset Button */}
-        <div className="flex items-end">
+        {/* Action Buttons */}
+        <div className="flex items-end gap-2">
           <Button 
             variant="outline" 
             size="sm"
             className="text-[var(--tensora-medium)]"
             onClick={onReset}
+            disabled={loading}
           >
-            <RefreshCw className="h-4 w-4 mr-2" /> Reset to Default
+            <RefreshCw className="h-4 w-4 mr-2" /> Reset
           </Button>
+          
+          {showApplyButton && onApply && (
+            <Button 
+              size="sm"
+              className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)]"
+              onClick={onApply}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Loading...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" /> Apply
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>

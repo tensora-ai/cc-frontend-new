@@ -18,55 +18,55 @@ export function StatsPanel({
 }: StatsPanelProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {/* Current Count */}
+      {/* Current Count - Most prominent */}
       <Card className="overflow-hidden border-t-2 border-t-[var(--tensora-medium)]">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-gray-500 font-medium">Current</p>
-            <div className="bg-[var(--tensora-light)]/10 p-2 rounded-full">
-              <Clock className="h-4 w-4 text-[var(--tensora-medium)]" />
+            <div className="bg-[var(--tensora-light)]/10 p-1.5 rounded-full">
+              <Clock className="h-3.5 w-3.5 text-[var(--tensora-medium)]" />
             </div>
           </div>
-          <p className="text-2xl font-bold mt-2">{current}</p>
+          <p className="text-2xl font-bold text-[var(--tensora-dark)]">{current}</p>
         </CardContent>
       </Card>
       
       {/* Maximum Count */}
       <Card className="overflow-hidden border-t-2 border-t-blue-500">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-gray-500 font-medium">Maximum</p>
-            <div className="bg-blue-50 p-2 rounded-full">
-              <TrendingUp className="h-4 w-4 text-blue-500" />
+            <div className="bg-blue-50 p-1.5 rounded-full">
+              <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
             </div>
           </div>
-          <p className="text-2xl font-bold mt-2">{maximum}</p>
+          <p className="text-xl font-bold">{maximum}</p>
         </CardContent>
       </Card>
       
       {/* Average Count */}
       <Card className="overflow-hidden border-t-2 border-t-amber-500">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-gray-500 font-medium">Average</p>
-            <div className="bg-amber-50 p-2 rounded-full">
-              <Users className="h-4 w-4 text-amber-500" />
+            <div className="bg-amber-50 p-1.5 rounded-full">
+              <Users className="h-3.5 w-3.5 text-amber-500" />
             </div>
           </div>
-          <p className="text-2xl font-bold mt-2">{average}</p>
+          <p className="text-xl font-bold">{average}</p>
         </CardContent>
       </Card>
       
       {/* Minimum Count */}
       <Card className="overflow-hidden border-t-2 border-t-green-500">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-gray-500 font-medium">Minimum</p>
-            <div className="bg-green-50 p-2 rounded-full">
-              <ArrowDown className="h-4 w-4 text-green-500" />
+            <div className="bg-green-50 p-1.5 rounded-full">
+              <ArrowDown className="h-3.5 w-3.5 text-green-500" />
             </div>
           </div>
-          <p className="text-2xl font-bold mt-2">{minimum}</p>
+          <p className="text-xl font-bold">{minimum}</p>
         </CardContent>
       </Card>
     </div>

@@ -22,6 +22,9 @@ import { DensityDisplay } from "@/components/dashboard/density-display";
 import { Project, CameraConfig } from "@/models/project";
 import { AggregateTimeSeriesResponse, TimeSeriesPoint } from "@/models/dashboard";
 
+// Dashboard states
+type DashboardState = 'initial' | 'loading' | 'success' | 'error' | 'empty';
+
 export default function DashboardPage() {
   const params = useParams();
   const projectId = params.project_id as string;
@@ -37,17 +40,23 @@ export default function DashboardPage() {
   // State for selected area
   const [selectedArea, setSelectedArea] = useState<string>("");
   
-  // State for dashboard controls
-  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date()); // Current local time
-  const [lookbackHours, setLookbackHours] = useState<number>(3);
+  // State for dashboard controls (with defaults)
+  const getDefaultDate = () => new Date();
+  const getDefaultLookback = () => 3;
   
-  // State for data
+  const [selectedDate, setSelectedDate] = useState<Date>(getDefaultDate);
+  const [lookbackHours, setLookbackHours] = useState<number>(getDefaultLookback);
+  
+  // Dashboard state management
+  const [dashboardState, setDashboardState] = useState<DashboardState>('initial');
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
-  const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   
   // State for clicked point on graph
   const [clickedTimestamp, setClickedTimestamp] = useState<string | null>(null);
+  
+  // State for display component loading
+  const [displayComponentsLoading, setDisplayComponentsLoading] = useState<boolean>(false);
   
   // Handle date changes from control panel
   const handleDateChange = (newDate: Date) => {
@@ -56,16 +65,82 @@ export default function DashboardPage() {
     setClickedTimestamp(null);
   };
   
+  // Handle resetting to defaults
+  const handleResetToDefaults = () => {
+    setSelectedDate(getDefaultDate());
+    setLookbackHours(getDefaultLookback());
+    setClickedTimestamp(null);
+  };
+  
+  // Handle apply button - fetch data
+  const handleApplySettings = async () => {
+    if (!projectId || !selectedArea) return;
+    
+    try {
+      setDashboardState('loading');
+      setDataError(null);
+      setClickedTimestamp(null);
+      
+      // Convert local time to UTC for API request
+      const utcDate = fromZonedTime(selectedDate, timeZone);
+      const endDate = format(utcDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
+      
+      // Make API request
+      const response = await fetch(`/api/projects/${projectId}/areas/${selectedArea}/predictions/aggregate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          end_date: endDate,
+          lookback_hours: lookbackHours,
+          half_moving_avg_size: 0
+        }),
+      });
+      
+      if (!response.ok) {
+        if (response.status === 422) {
+          // Partial data - some cameras have data, others don't
+          setDataError("Not enough prediction data available. Some cameras in this area do not have data while others do.");
+          setDashboardState('error');
+        } else {
+          // Generic error
+          setDataError("Failed to fetch prediction data. Please try again.");
+          setDashboardState('error');
+        }
+        return;
+      }
+      
+      const data: AggregateTimeSeriesResponse = await response.json();
+      
+      // Check if we got empty time series
+      if (!data.time_series || data.time_series.length === 0) {
+        setDataError("No prediction data available within the selected time range.");
+        setDashboardState('empty');
+        setTimeSeriesData([]);
+      } else {
+        // Success - we have valid data
+        setTimeSeriesData(data.time_series);
+        setDashboardState('success');
+      }
+      
+    } catch (err) {
+      console.error("Failed to fetch time series data:", err);
+      setDataError("Failed to fetch prediction data. Please try again.");
+      setDashboardState('error');
+    }
+  };
+  
   // Handle graph point click
   const handleGraphPointClick = (timestamp: string) => {
     setClickedTimestamp(timestamp);
-  };
-  
-  // Handle resetting to defaults
-  const handleResetToDefaults = () => {
-    setSelectedDate(new Date());
-    setLookbackHours(3);
-    setClickedTimestamp(null);
+    // Trigger loading for display components
+    setDisplayComponentsLoading(true);
+    
+    // Reset loading after a brief delay (components will handle their own loading)
+    setTimeout(() => {
+      setDisplayComponentsLoading(false);
+    }, 100);
   };
   
   // Load project data
@@ -100,68 +175,6 @@ export default function DashboardPage() {
     }
   }, [projectId]);
   
-  // Fetch time series data when parameters change
-  useEffect(() => {
-    async function fetchTimeSeriesData() {
-      if (!projectId || !selectedArea) return;
-      
-      try {
-        setLoadingData(true);
-        setDataError(null);
-        
-        // Convert local time to UTC for API request
-        const utcDate = fromZonedTime(selectedDate, timeZone);
-        
-        // Format the date in UTC for the API
-        const endDate = format(utcDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
-        
-        // Make API request using the correct endpoint structure
-        const response = await fetch(`/api/projects/${projectId}/areas/${selectedArea}/predictions/aggregate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            end_date: endDate,
-            lookback_hours: lookbackHours,
-            half_moving_avg_size: 0 // Removed the moving avg slider as requested
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch time series data: ${response.statusText}`);
-        }
-        
-        const data: AggregateTimeSeriesResponse = await response.json();
-        
-        // Process the received data
-        setTimeSeriesData(data.time_series);
-        setLoadingData(false);
-      } catch (err) {
-        console.error("Failed to fetch time series data:", err);
-        setDataError("Failed to load crowd count data. Please try again.");
-        setLoadingData(false);
-      }
-    }
-    
-    fetchTimeSeriesData();
-    
-    // Set up interval to refresh data every 30 seconds if we're viewing current time
-    // Only auto-refresh if the selected date is close to the current time (within 5 minutes)
-    const now = new Date();
-    const isViewingCurrentTime = Math.abs(selectedDate.getTime() - now.getTime()) < 5 * 60 * 1000;
-    
-    let intervalId: NodeJS.Timeout | null = null;
-    if (isViewingCurrentTime) {
-      intervalId = setInterval(fetchTimeSeriesData, 30000);
-    }
-    
-    // Clean up interval on unmount
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [projectId, selectedArea, selectedDate, lookbackHours, timeZone]);
-  
   // Calculate stats from time series data
   const calculateStats = useCallback(() => {
     if (!timeSeriesData || timeSeriesData.length === 0) {
@@ -193,6 +206,9 @@ export default function DashboardPage() {
     return format(utcDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
   }, [clickedTimestamp, selectedDate, timeZone]);
   
+  // Check if we have valid prediction data
+  const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;
+  
   // Loading state
   if (loading) {
     return (
@@ -207,15 +223,6 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-48 w-full" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </div>
-          <div className="grid grid-cols-1 gap-6">
-            <Skeleton className="h-64 w-full" />
-          </div>
         </div>
       </div>
     );
@@ -281,6 +288,9 @@ export default function DashboardPage() {
   
   // Function to render camera configuration panels
   const renderCameraConfigPanels = (cameraConfigs: CameraConfig[]) => {
+    // Only show if we have valid data
+    if (!hasValidData) return null;
+    
     if (cameraConfigs.length === 0) {
       return (
         <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded">
@@ -297,7 +307,9 @@ export default function DashboardPage() {
       
       return (
         <div key={config.id} className="bg-white rounded-lg border shadow-sm p-4 mb-6">
-          <h3 className="text-lg font-medium mb-4">{config.name} ({camera?.name || config.camera_id})</h3>
+          <h3 className="text-lg font-medium mb-4">
+            {(project.cameras.find(c => c.id === config.camera_id)?.name ?? "Unknown Camera")} ({config.position.name})
+          </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Camera Image Panel */}
@@ -309,30 +321,33 @@ export default function DashboardPage() {
                 cameraId={config.camera_id}
                 positionId={config.position.name}
                 timestamp={displayTimestamp}
+                forceLoading={displayComponentsLoading}
               />
             </div>
             
             {/* Heatmap Panel */}
             <div className="bg-white rounded-lg border p-4">
-              <h4 className="text-md font-medium mb-3">Density Heatmap</h4>
+              <h4 className="text-md font-medium mb-3">Heatmap</h4>
               <HeatmapDisplay
                 projectId={projectId}
                 areaId={selectedArea}
                 cameraId={config.camera_id}
                 positionId={config.position.name}
                 timestamp={displayTimestamp}
+                forceLoading={displayComponentsLoading}
               />
             </div>
             
-            {/* Density Panel - Placeholder for now */}
+            {/* Density Panel */}
             <div className="bg-white rounded-lg border p-4">
-              <h4 className="text-md font-medium mb-3">Density Data</h4>
+              <h4 className="text-md font-medium mb-3">m²-Density</h4>
               <DensityDisplay
                 projectId={projectId}
                 areaId={selectedArea}
                 cameraId={config.camera_id}
                 positionId={config.position.name}
                 timestamp={displayTimestamp}
+                forceLoading={displayComponentsLoading}
               />
             </div>
           </div>
@@ -340,6 +355,55 @@ export default function DashboardPage() {
       );
     });
   };
+  
+  // Function to render dashboard content for an area
+  const renderAreaContent = (area: typeof project.areas[0]) => (
+    <div className="space-y-6 pt-4">
+      {/* Control Panel - Always shown */}
+      <ControlPanel 
+        date={selectedDate}
+        onDateChange={handleDateChange}
+        lookbackHours={lookbackHours}
+        onLookbackChange={setLookbackHours}
+        onReset={handleResetToDefaults}
+        onApply={handleApplySettings}
+        loading={dashboardState === 'loading'}
+        showApplyButton={true}
+      />
+      
+      {/* Show content based on dashboard state - FIXED: No double loading */}
+      {dashboardState !== 'initial' && (
+        <>
+          {/* Stats Panel - only show with valid data, positioned above graph */}
+          {hasValidData && (
+            <div className="bg-white rounded-lg border p-4 shadow-sm">
+              <h2 className="text-lg font-medium mb-4">Statistics Overview</h2>
+              <StatsPanel 
+                current={stats.current}
+                maximum={stats.maximum}
+                average={stats.average}
+                minimum={stats.minimum}
+              />
+            </div>
+          )}
+          
+          {/* Crowd Graph */}
+          <div className="bg-white rounded-lg border p-4 shadow-sm">
+            <h2 className="text-lg font-medium mb-4">Crowd Count</h2>
+            <CrowdGraph 
+              data={timeSeriesData} 
+              isLoading={dashboardState === 'loading'}
+              onPointClick={handleGraphPointClick}
+              error={dataError}
+            />
+          </div>
+          
+          {/* Camera Configuration Panels - only with valid data */}
+          {renderCameraConfigPanels(area.camera_configs)}
+        </>
+      )}
+    </div>
+  );
   
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
@@ -351,67 +415,49 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-[var(--tensora-dark)]">{project.name} Dashboard</h1>
       </div>
       
-      {/* Area Tabs */}
-      <Tabs
-        value={selectedArea}
-        onValueChange={setSelectedArea}
-        className="w-full"
-      >
-        <TabsList className="w-full justify-start overflow-x-auto">
+      {/* Conditional rendering based on number of areas */}
+      {project.areas.length === 1 ? (
+        // Single area - no tabs, just area name
+        <div>
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-[var(--tensora-dark)]">{project.areas[0].name}</h2>
+          </div>
+          {renderAreaContent(project.areas[0])}
+        </div>
+      ) : (
+        // Multiple areas - use tabs
+        <Tabs
+          value={selectedArea}
+          onValueChange={(value) => {
+            setSelectedArea(value);
+            // Reset dashboard state when switching areas
+            setDashboardState('initial');
+            setTimeSeriesData([]);
+            setDataError(null);
+            setClickedTimestamp(null);
+          }}
+          className="w-full"
+        >
+          <TabsList className="w-full justify-start overflow-x-auto">
+            {project.areas.map((area) => (
+              <TabsTrigger 
+                key={area.id} 
+                value={area.id}
+                className="px-4 py-2"
+              >
+                {area.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          
+          {/* Tab Content for each area */}
           {project.areas.map((area) => (
-            <TabsTrigger 
-              key={area.id} 
-              value={area.id}
-              className="px-4 py-2"
-            >
-              {area.name}
-            </TabsTrigger>
+            <TabsContent key={area.id} value={area.id}>
+              {renderAreaContent(area)}
+            </TabsContent>
           ))}
-        </TabsList>
-        
-        {/* Tab Content for each area */}
-        {project.areas.map((area) => (
-          <TabsContent key={area.id} value={area.id} className="space-y-6 pt-4">
-            {/* Control Panel */}
-            <ControlPanel 
-              date={selectedDate}
-              onDateChange={handleDateChange}
-              lookbackHours={lookbackHours}
-              onLookbackChange={setLookbackHours}
-              onReset={handleResetToDefaults}
-            />
-            
-            {/* Stats Panel */}
-            <StatsPanel 
-              current={stats.current}
-              maximum={stats.maximum}
-              average={stats.average}
-              minimum={stats.minimum}
-            />
-            
-            {/* Error message if data loading failed */}
-            {dataError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                <p className="font-medium">{dataError}</p>
-                <p className="text-sm mt-1">Try adjusting your filters or refreshing the page.</p>
-              </div>
-            )}
-            
-            {/* Graph */}
-            <div className="bg-white rounded-lg border p-4 shadow-sm">
-              <h2 className="text-lg font-medium mb-4">Crowd Count</h2>
-              <CrowdGraph 
-                data={timeSeriesData} 
-                isLoading={loadingData}
-                onPointClick={handleGraphPointClick}
-              />
-            </div>
-            
-            {/* Camera Configuration Panels - one set for each camera config */}
-            {renderCameraConfigPanels(area.camera_configs)}
-          </TabsContent>
-        ))}
-      </Tabs>
+        </Tabs>
+      )}
     </div>
   );
 }

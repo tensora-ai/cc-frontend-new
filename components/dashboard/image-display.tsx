@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
-import { ImageOff } from "lucide-react";
+import { ImageOff, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 
@@ -13,6 +13,7 @@ interface ImageDisplayProps {
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
+  forceLoading?: boolean; // New prop to force loading state
 }
 
 export function ImageDisplay({
@@ -20,7 +21,8 @@ export function ImageDisplay({
   areaId,
   cameraId,
   positionId,
-  timestamp
+  timestamp,
+  forceLoading = false
 }: ImageDisplayProps) {
   // State for image URL (created from blob) and loading
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -80,6 +82,19 @@ export function ImageDisplay({
     };
   }, [projectId, areaId, cameraId, positionId, timestamp]);
   
+  // Handle force loading
+  useEffect(() => {
+    if (forceLoading) {
+      setLoading(true);
+      // Reset loading state after a brief delay
+      const timeoutId = setTimeout(() => {
+        setLoading(false);
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [forceLoading]);
+  
   // Format timestamp for display in local time
   const formatTimestamp = (isoString: string) => {
     try {
@@ -100,8 +115,11 @@ export function ImageDisplay({
   // Loading state
   if (loading) {
     return (
-      <div className="w-full aspect-video">
-        <Skeleton className="w-full h-full" />
+      <div className="w-full aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 text-gray-400 mx-auto mb-2 animate-spin" />
+          <p className="text-gray-500 text-sm">Loading image...</p>
+        </div>
       </div>
     );
   }

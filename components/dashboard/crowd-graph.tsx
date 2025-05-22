@@ -5,6 +5,7 @@ import { format, parseISO } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { TimeSeriesPoint } from "@/models/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertTriangle, BarChart3, Info } from "lucide-react";
 import { 
   LineChart, 
   Line, 
@@ -21,6 +22,7 @@ interface CrowdGraphProps {
   data: TimeSeriesPoint[];
   isLoading: boolean;
   onPointClick: (timestamp: string) => void;
+  error?: string | null;  // New error prop for specific error messages
 }
 
 interface TimeSeriesPointWithLocalTime {
@@ -30,7 +32,7 @@ interface TimeSeriesPointWithLocalTime {
   timeFormatted: string; // Formatted time for display (HH:MM)
 }
 
-export function CrowdGraph({ data, isLoading, onPointClick }: CrowdGraphProps) {
+export function CrowdGraph({ data, isLoading, onPointClick, error }: CrowdGraphProps) {
   // Prepare chart data by parsing ISO dates and formatting
   const [chartData, setChartData] = useState<TimeSeriesPointWithLocalTime[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
@@ -103,11 +105,64 @@ export function CrowdGraph({ data, isLoading, onPointClick }: CrowdGraphProps) {
     );
   }
   
-  // Empty state
+  // Error states with specific messages
+  if (error) {
+    const isPartialDataError = error.includes("Some cameras in this area do not have data");
+    const isNoDataError = error.includes("No prediction data available");
+    
+    return (
+      <div className="w-full h-64 flex items-center justify-center border-2 border-dashed rounded-lg">
+        <div className="text-center p-6">
+          {isPartialDataError ? (
+            <>
+              <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-amber-700 mb-2">Insufficient Data</h3>
+              <p className="text-amber-600 text-sm max-w-md">
+                {error}
+              </p>
+              <p className="text-amber-500 text-xs mt-2">
+                Please ensure all cameras in this area have prediction data for the selected time range.
+              </p>
+            </>
+          ) : isNoDataError ? (
+            <>
+              <Info className="h-12 w-12 text-blue-500 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-blue-700 mb-2">No Data Available</h3>
+              <p className="text-blue-600 text-sm max-w-md">
+                {error}
+              </p>
+              <p className="text-blue-500 text-xs mt-2">
+                Try expanding the time range or selecting a different date.
+              </p>
+            </>
+          ) : (
+            <>
+              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-red-700 mb-2">Error Loading Data</h3>
+              <p className="text-red-600 text-sm max-w-md">
+                {error}
+              </p>
+              <p className="text-red-500 text-xs mt-2">
+                Please check your connection and try again.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  // Empty state (no error, but no data)
   if (!data || data.length === 0) {
     return (
       <div className="w-full h-64 flex items-center justify-center border-2 border-dashed border-gray-200 rounded-lg">
-        <p className="text-gray-400">No data available for the selected time range</p>
+        <div className="text-center p-6">
+          <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+          <h3 className="text-lg font-medium text-gray-600 mb-2">No Data to Display</h3>
+          <p className="text-gray-500 text-sm">
+            Configure your settings and click "Apply" to load prediction data.
+          </p>
+        </div>
       </div>
     );
   }
