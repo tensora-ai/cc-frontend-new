@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, TrendingUp, ArrowDown } from "lucide-react";
+import { Users, TrendingUp, ArrowDown, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface StatsPanelProps {
@@ -24,7 +24,7 @@ export function StatsPanel({
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500 font-medium">Current</p>
             <div className="bg-[var(--tensora-light)]/10 p-2 rounded-full">
-              <Users className="h-4 w-4 text-[var(--tensora-medium)]" />
+              <Clock className="h-4 w-4 text-[var(--tensora-medium)]" />
             </div>
           </div>
           <p className="text-2xl font-bold mt-2">{current}</p>

@@ -3,7 +3,7 @@
  */
 
 export interface TimeSeriesPoint {
-  timestamp: string;
+  timestamp: string;  // UTC ISO format
   value: number;
 }
 
@@ -15,9 +15,7 @@ export interface TimeSeriesPointWithLocalTime {
 }
 
 export interface AggregateTimeSeriesRequest {
-  project: string;
-  area: string;
-  end_date: string;
+  end_date: string;  // UTC ISO format
   lookback_hours: number;
   half_moving_avg_size: number;
 }
@@ -39,11 +37,17 @@ export interface HeatmapData {
     width: number;
     height: number;
   };
+  timestamp: string;  // UTC ISO format
 }
 
 export interface CameraImage {
   url: string;
-  timestamp: string;
+  timestamp: string;  // UTC ISO format
   camera_id: string;
   position: string;
+}
+
+export interface DensityData {
+  data: number[][];  // 2D array of density values
+  timestamp: string;  // UTC ISO format
 }

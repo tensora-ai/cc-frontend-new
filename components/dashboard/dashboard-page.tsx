@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { format, parseISO } from "date-fns";
-import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
+import { format } from "date-fns";
+import { fromZonedTime } from "date-fns-tz";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -16,9 +16,10 @@ import { StatsPanel } from "@/components/dashboard/stats-panel";
 import { CrowdGraph } from "@/components/dashboard/crowd-graph";
 import { ImageDisplay } from "@/components/dashboard/image-display";
 import { HeatmapDisplay } from "@/components/dashboard/heatmap-display";
+import { DensityDisplay } from "@/components/dashboard/density-display";
 
 // Import types
-import { Project } from "@/models/project";
+import { Project, CameraConfig } from "@/models/project";
 import { AggregateTimeSeriesResponse, TimeSeriesPoint } from "@/models/dashboard";
 
 export default function DashboardPage() {
@@ -36,23 +37,35 @@ export default function DashboardPage() {
   // State for selected area
   const [selectedArea, setSelectedArea] = useState<string>("");
   
-  // State for controls - store dates in LOCAL time for UI display
-  const [selectedDate, setSelectedDate] = useState<Date>(() => {
-    // Start with current time in local timezone
-    return new Date();
-  });
+  // State for dashboard controls
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date()); // Current local time
   const [lookbackHours, setLookbackHours] = useState<number>(3);
-  const [movingAvgSize, setMovingAvgSize] = useState<number>(2);
   
   // State for data
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   
-  // Handle date changes from control panel - these are already in UTC from the control panel
+  // State for clicked point on graph
+  const [clickedTimestamp, setClickedTimestamp] = useState<string | null>(null);
+  
+  // Handle date changes from control panel
   const handleDateChange = (newDate: Date) => {
-    // No conversion needed as the date is already in local time
     setSelectedDate(newDate);
+    // Reset clicked point when manually changing date
+    setClickedTimestamp(null);
+  };
+  
+  // Handle graph point click
+  const handleGraphPointClick = (timestamp: string) => {
+    setClickedTimestamp(timestamp);
+  };
+  
+  // Handle resetting to defaults
+  const handleResetToDefaults = () => {
+    setSelectedDate(new Date());
+    setLookbackHours(3);
+    setClickedTimestamp(null);
   };
   
   // Load project data
@@ -60,7 +73,6 @@ export default function DashboardPage() {
     async function fetchProject() {
       try {
         setLoading(true);
-        // In a real app, this would be an API call
         const response = await fetch(`/api/projects/${projectId}`);
         
         if (!response.ok) {
@@ -103,18 +115,16 @@ export default function DashboardPage() {
         // Format the date in UTC for the API
         const endDate = format(utcDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
         
-        // In a real app, this would be an API call
-        const response = await fetch('/api/predictions/aggregate', {
+        // Make API request using the correct endpoint structure
+        const response = await fetch(`/api/projects/${projectId}/areas/${selectedArea}/predictions/aggregate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            project: projectId,
-            area: selectedArea,
             end_date: endDate,
             lookback_hours: lookbackHours,
-            half_moving_avg_size: movingAvgSize
+            half_moving_avg_size: 0 // Removed the moving avg slider as requested
           }),
         });
         
@@ -124,18 +134,8 @@ export default function DashboardPage() {
         
         const data: AggregateTimeSeriesResponse = await response.json();
         
-        // Process the received data - transform UTC timestamps to local time
-        const processedData = data.time_series.map(point => ({
-          ...point,
-          // Keep the original timestamp string but also add a localized version for display
-          localTimestamp: formatInTimeZone(
-            parseISO(point.timestamp),
-            timeZone,
-            'yyyy-MM-dd HH:mm:ss'
-          )
-        }));
-        
-        setTimeSeriesData(processedData);
+        // Process the received data
+        setTimeSeriesData(data.time_series);
         setLoadingData(false);
       } catch (err) {
         console.error("Failed to fetch time series data:", err);
@@ -146,15 +146,24 @@ export default function DashboardPage() {
     
     fetchTimeSeriesData();
     
-    // Set up interval to refresh data every 30 seconds
-    const intervalId = setInterval(fetchTimeSeriesData, 30000);
+    // Set up interval to refresh data every 30 seconds if we're viewing current time
+    // Only auto-refresh if the selected date is close to the current time (within 5 minutes)
+    const now = new Date();
+    const isViewingCurrentTime = Math.abs(selectedDate.getTime() - now.getTime()) < 5 * 60 * 1000;
+    
+    let intervalId: NodeJS.Timeout | null = null;
+    if (isViewingCurrentTime) {
+      intervalId = setInterval(fetchTimeSeriesData, 30000);
+    }
     
     // Clean up interval on unmount
-    return () => clearInterval(intervalId);
-  }, [projectId, selectedArea, selectedDate, lookbackHours, movingAvgSize, timeZone]);
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [projectId, selectedArea, selectedDate, lookbackHours, timeZone]);
   
   // Calculate stats from time series data
-  const calculateStats = () => {
+  const calculateStats = useCallback(() => {
     if (!timeSeriesData || timeSeriesData.length === 0) {
       return { current: 0, maximum: 0, average: 0, minimum: 0 };
     }
@@ -167,10 +176,22 @@ export default function DashboardPage() {
       average: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length),
       minimum: Math.min(...values)
     };
-  };
+  }, [timeSeriesData]);
   
   // Get stats
   const stats = calculateStats();
+  
+  // Get the timestamp to use for image/heatmap/density fetching
+  const getDisplayTimestamp = useCallback(() => {
+    // Use clicked timestamp if available, otherwise use the selected date
+    if (clickedTimestamp) {
+      return clickedTimestamp;
+    }
+    
+    // Convert selected date to UTC and format
+    const utcDate = fromZonedTime(selectedDate, timeZone);
+    return format(utcDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
+  }, [clickedTimestamp, selectedDate, timeZone]);
   
   // Loading state
   if (loading) {
@@ -192,8 +213,7 @@ export default function DashboardPage() {
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Skeleton className="h-64 w-full" />
+          <div className="grid grid-cols-1 gap-6">
             <Skeleton className="h-64 w-full" />
           </div>
         </div>
@@ -259,6 +279,68 @@ export default function DashboardPage() {
     );
   }
   
+  // Function to render camera configuration panels
+  const renderCameraConfigPanels = (cameraConfigs: CameraConfig[]) => {
+    if (cameraConfigs.length === 0) {
+      return (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded">
+          <p className="font-medium">No camera configurations</p>
+          <p className="text-sm mt-1">This area has no camera configurations. Please add at least one camera configuration.</p>
+        </div>
+      );
+    }
+    
+    return cameraConfigs.map((config) => {
+      // Find the camera for this config to get the name
+      const camera = project.cameras.find(c => c.id === config.camera_id);
+      const displayTimestamp = getDisplayTimestamp();
+      
+      return (
+        <div key={config.id} className="bg-white rounded-lg border shadow-sm p-4 mb-6">
+          <h3 className="text-lg font-medium mb-4">{config.name} ({camera?.name || config.camera_id})</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Camera Image Panel */}
+            <div className="bg-white rounded-lg border p-4">
+              <h4 className="text-md font-medium mb-3">Camera View</h4>
+              <ImageDisplay 
+                projectId={projectId}
+                areaId={selectedArea}
+                cameraId={config.camera_id}
+                positionId={config.position.name}
+                timestamp={displayTimestamp}
+              />
+            </div>
+            
+            {/* Heatmap Panel */}
+            <div className="bg-white rounded-lg border p-4">
+              <h4 className="text-md font-medium mb-3">Density Heatmap</h4>
+              <HeatmapDisplay
+                projectId={projectId}
+                areaId={selectedArea}
+                cameraId={config.camera_id}
+                positionId={config.position.name}
+                timestamp={displayTimestamp}
+              />
+            </div>
+            
+            {/* Density Panel - Placeholder for now */}
+            <div className="bg-white rounded-lg border p-4">
+              <h4 className="text-md font-medium mb-3">Density Data</h4>
+              <DensityDisplay
+                projectId={projectId}
+                areaId={selectedArea}
+                cameraId={config.camera_id}
+                positionId={config.position.name}
+                timestamp={displayTimestamp}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+  
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       {/* Header with back button and project name */}
@@ -296,8 +378,7 @@ export default function DashboardPage() {
               onDateChange={handleDateChange}
               lookbackHours={lookbackHours}
               onLookbackChange={setLookbackHours}
-              movingAvgSize={movingAvgSize}
-              onMovingAvgChange={setMovingAvgSize}
+              onReset={handleResetToDefaults}
             />
             
             {/* Stats Panel */}
@@ -321,32 +402,13 @@ export default function DashboardPage() {
               <h2 className="text-lg font-medium mb-4">Crowd Count</h2>
               <CrowdGraph 
                 data={timeSeriesData} 
-                isLoading={loadingData} 
+                isLoading={loadingData}
+                onPointClick={handleGraphPointClick}
               />
             </div>
             
-            {/* Visualizations - Images and Heatmap */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Camera Images */}
-              <div className="bg-white rounded-lg border p-4 shadow-sm">
-                <h2 className="text-lg font-medium mb-4">Camera View</h2>
-                <ImageDisplay 
-                  projectId={projectId}
-                  areaId={area.id} 
-                  selectedTime={selectedDate}
-                />
-              </div>
-              
-              {/* Heatmap */}
-              <div className="bg-white rounded-lg border p-4 shadow-sm">
-                <h2 className="text-lg font-medium mb-4">Density Heatmap</h2>
-                <HeatmapDisplay 
-                  projectId={projectId}
-                  areaId={area.id}
-                  selectedTime={selectedDate}
-                />
-              </div>
-            </div>
+            {/* Camera Configuration Panels - one set for each camera config */}
+            {renderCameraConfigPanels(area.camera_configs)}
           </TabsContent>
         ))}
       </Tabs>

@@ -3,18 +3,37 @@
 import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
-import { TimeSeriesPoint, TimeSeriesPointWithLocalTime } from "@/models/dashboard";
+import { TimeSeriesPoint } from "@/models/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, TooltipProps } from "recharts";
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  TooltipProps,
+  ReferenceDot 
+} from "recharts";
 
 interface CrowdGraphProps {
   data: TimeSeriesPoint[];
   isLoading: boolean;
+  onPointClick: (timestamp: string) => void;
 }
 
-export function CrowdGraph({ data, isLoading }: CrowdGraphProps) {
+interface TimeSeriesPointWithLocalTime {
+  timestamp: string;  // Original UTC timestamp for API calls
+  time: Date;         // Parsed date object
+  count: number;      // The crowd count value
+  timeFormatted: string; // Formatted time for display (HH:MM)
+}
+
+export function CrowdGraph({ data, isLoading, onPointClick }: CrowdGraphProps) {
   // Prepare chart data by parsing ISO dates and formatting
   const [chartData, setChartData] = useState<TimeSeriesPointWithLocalTime[]>([]);
+  const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   
   useEffect(() => {
     if (!data || data.length === 0) return;
@@ -30,11 +49,10 @@ export function CrowdGraph({ data, isLoading }: CrowdGraphProps) {
       const localTime = toZonedTime(utcTime, timeZone);
       
       return {
+        timestamp: point.timestamp, // Keep original timestamp for API calls
         time: localTime,
         count: point.value,
         timeFormatted: format(localTime, "HH:mm"),
-        // Use the localTimestamp if available (from the enhanced TimeSeriesPoint)
-        localTimeString: (point as TimeSeriesPoint).timestamp || format(localTime, "yyyy-MM-dd HH:mm:ss")
       };
     });
     
@@ -67,6 +85,15 @@ export function CrowdGraph({ data, isLoading }: CrowdGraphProps) {
     return null;
   };
   
+  // Handle graph click
+  const handleGraphClick = (data: any) => {
+    if (data && data.activePayload && data.activePayload.length > 0) {
+      const clickedData = data.activePayload[0].payload;
+      setSelectedPoint(clickedData.timestamp);
+      onPointClick(clickedData.timestamp);
+    }
+  };
+  
   // Loading state
   if (isLoading) {
     return (
@@ -91,6 +118,8 @@ export function CrowdGraph({ data, isLoading }: CrowdGraphProps) {
         <LineChart
           data={chartData}
           margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+          onClick={handleGraphClick}
+          className="cursor-pointer"
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
           <XAxis 
@@ -116,6 +145,21 @@ export function CrowdGraph({ data, isLoading }: CrowdGraphProps) {
             dot={false}
             activeDot={{ r: 6, fill: "var(--tensora-dark)" }}
           />
+          
+          {/* Show selected point with a reference dot */}
+          {selectedPoint && chartData.map((point, index) => (
+            point.timestamp === selectedPoint ? (
+              <ReferenceDot
+                key={index}
+                x={point.timeFormatted}
+                y={point.count}
+                r={6}
+                fill="var(--tensora-dark)"
+                stroke="white"
+                strokeWidth={2}
+              />
+            ) : null
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </div>

@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import { Calendar, Clock, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
-import { fromZonedTime } from "date-fns-tz";
 import { 
   Popover,
   PopoverContent,
@@ -17,11 +16,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 interface ControlPanelProps {
   date: Date;  // This is the date in local time
-  onDateChange: (date: Date) => void;  // This should receive a date in UTC
+  onDateChange: (date: Date) => void;  // This should receive a date in local time
   lookbackHours: number;
   onLookbackChange: (hours: number) => void;
-  movingAvgSize: number;
-  onMovingAvgChange: (size: number) => void;
+  onReset: () => void;
 }
 
 export function ControlPanel({
@@ -29,12 +27,8 @@ export function ControlPanel({
   onDateChange,
   lookbackHours,
   onLookbackChange,
-  movingAvgSize,
-  onMovingAvgChange
-}: ControlPanelProps) {
-  // Get the local timezone
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  
+  onReset
+}: ControlPanelProps) { 
   // Format date as YYYY-MM-DD
   const formattedDate = useMemo(() => {
     return format(date, "yyyy-MM-dd");
@@ -42,7 +36,7 @@ export function ControlPanel({
   
   // State for time values - initialize with local date
   const [hour, setHour] = useState(date.getHours());
-  const [minute, setMinute] = useState(date.getMinutes());
+  const [minute, setMinute] = useState(Math.floor(date.getMinutes() / 5) * 5); // Round to nearest 5 minutes
   
   const handleTimeChange = (newHour: number, newMinute: number) => {
     // Create a new local date with the updated time
@@ -50,11 +44,11 @@ export function ControlPanel({
     newLocalDate.setHours(newHour);
     newLocalDate.setMinutes(newMinute);
     
-    // Pass the local date directly to parent - no UTC conversion
+    // Pass the local date directly to parent
     onDateChange(newLocalDate);
   };
   
-  // Handle date selection - convert to UTC for the parent component
+  // Handle date selection in local time
   const handleSelectDate = (newDate: Date | undefined) => {
     if (!newDate) return;
     
@@ -63,18 +57,8 @@ export function ControlPanel({
     newLocalDate.setHours(hour);
     newLocalDate.setMinutes(minute);
     
-    // Pass the local date directly to parent - no UTC conversion
+    // Pass the local date to parent
     onDateChange(newLocalDate);
-  };
-  
-  // Handle reset to current time - convert to UTC
-  const handleResetToCurrentTime = () => {
-    const now = new Date();
-    onDateChange(now);
-    
-    // Update local state
-    setHour(now.getHours());
-    setMinute(now.getMinutes());
   };
   
   // Generate hour options
@@ -180,33 +164,17 @@ export function ControlPanel({
           />
         </div>
         
-        {/* Moving Average Slider */}
-        <div className="flex-1">
-          <div className="flex justify-between mb-2">
-            <Label className="text-sm text-gray-500">Smoothing Factor</Label>
-            <span className="text-sm font-medium">{movingAvgSize}</span>
-          </div>
-          <Slider
-            value={[movingAvgSize]}
-            min={0}
-            max={5}
-            step={1}
-            onValueChange={(values) => onMovingAvgChange(values[0])}
-            className="w-full"
-          />
+        {/* Reset Button */}
+        <div className="flex items-end">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="text-[var(--tensora-medium)]"
+            onClick={onReset}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" /> Reset to Default
+          </Button>
         </div>
-      </div>
-      
-      {/* Refresh Button */}
-      <div className="flex justify-end pt-2">
-        <Button 
-          variant="outline" 
-          size="sm"
-          className="text-[var(--tensora-medium)]"
-          onClick={handleResetToCurrentTime}
-        >
-          <RefreshCw className="h-4 w-4 mr-2" /> Current Time
-        </Button>
       </div>
     </div>
   );
