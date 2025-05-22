@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ClipboardList, AlertTriangle, RefreshCw } from "lucide-react";
+import Plot from 'react-plotly.js';
 
 interface DensityDisplayProps {
   projectId: string;
@@ -11,7 +12,8 @@ interface DensityDisplayProps {
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
-  forceLoading?: boolean; // New prop to force loading state
+  heatmapConfig?: [number, number, number, number]; // [left, top, right, bottom]
+  forceLoading?: boolean;
 }
 
 interface DensityResponse {
@@ -25,34 +27,32 @@ export function DensityDisplay({
   cameraId,
   positionId,
   timestamp,
+  heatmapConfig,
   forceLoading = false
 }: DensityDisplayProps) {
-  // State for density data and loading
   const [densityData, setDensityData] = useState<DensityResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Fetch density data when parameters change
+
   useEffect(() => {
     async function fetchDensityData() {
       if (!projectId || !areaId || !cameraId || !positionId || !timestamp) return;
-      
+
       try {
         setLoading(true);
         setError(null);
-        
-        // Call the nearest-density endpoint
+
         const response = await fetch(
           `/api/projects/${projectId}/areas/${areaId}/nearest-density?` +
           `camera_id=${encodeURIComponent(cameraId)}&` +
           `position_id=${encodeURIComponent(positionId)}&` +
           `timestamp=${encodeURIComponent(timestamp)}`
         );
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch density data: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         setDensityData(data);
         setLoading(false);
@@ -62,41 +62,29 @@ export function DensityDisplay({
         setLoading(false);
       }
     }
-    
+
     fetchDensityData();
   }, [projectId, areaId, cameraId, positionId, timestamp]);
-  
-  // Handle force loading
+
   useEffect(() => {
     if (forceLoading) {
       setLoading(true);
-      // Reset loading state after a brief delay
-      const timeoutId = setTimeout(() => {
-        setLoading(false);
-      }, 300);
-      
+      const timeoutId = setTimeout(() => setLoading(false), 300);
       return () => clearTimeout(timeoutId);
     }
   }, [forceLoading]);
-  
-  // Format timestamp for display in local time
+
   const formatTimestamp = (isoString: string) => {
     try {
-      // Get the local timezone
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
-      // Parse the ISO string
       const date = parseISO(isoString);
-      
-      // Format with local time zone
       return formatInTimeZone(date, timeZone, "MMM d, yyyy HH:mm:ss");
     } catch (error) {
       console.error("Error formatting timestamp:", error);
       return "Unknown time";
     }
   };
-  
-  // Loading state
+
   if (loading) {
     return (
       <div className="w-full aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
@@ -107,8 +95,7 @@ export function DensityDisplay({
       </div>
     );
   }
-  
-  // Error state
+
   if (error) {
     return (
       <div className="w-full aspect-video flex items-center justify-center bg-red-50 rounded-lg border border-red-200">
@@ -116,25 +103,112 @@ export function DensityDisplay({
           <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-2" />
           <p className="text-red-600 font-medium">Error Loading Density Data</p>
           <p className="text-red-500 text-sm mt-2">{error}</p>
-          <p className="text-red-400 text-xs mt-2">Please check your connection and try again.</p>
         </div>
       </div>
     );
   }
-  
-  // Success state (placeholder for now as specified in requirements)
+
+  if (!densityData || !densityData.data || densityData.data.length === 0) {
+    return (
+      <div className="w-full aspect-video flex items-center justify-center bg-gray-100 rounded-lg">
+        <div className="text-center p-4">
+          <ClipboardList className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+          <p className="text-gray-500 font-medium">No Density Data Available</p>
+          <p className="text-gray-400 text-sm mt-2">No density measurements found for this time period.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const data = densityData.data;
+  const dataHeight = data.length;
+  const dataWidth = data[0]?.length || 0;
+
+  let physicalWidth = dataWidth;
+  let physicalHeight = dataHeight;
+  let xOffset = 0;
+  let yOffset = 0;
+
+  if (heatmapConfig && heatmapConfig.length === 4) {
+    const [left, top, right, bottom] = heatmapConfig;
+    physicalWidth = right - left;
+    physicalHeight = bottom - top;
+    xOffset = left;
+    yOffset = top;
+  }
+
+  const xCoords = Array.from({ length: dataWidth }, (_, i) =>
+    xOffset + (i * (physicalWidth / dataWidth))
+  );
+  const yCoords = Array.from({ length: dataHeight }, (_, i) =>
+    yOffset + (i * (physicalHeight / dataHeight))
+  );
+
+  const plotData = [{
+    z: data,
+    x: xCoords,
+    y: yCoords,
+    type: 'heatmap',
+    colorscale: [
+      [0, 'rgb(101, 227, 5)'],
+      [0.5, 'rgb(250, 238, 65)'],
+      [1, 'rgb(237, 61, 7)']
+    ],
+    zmin: 0,
+    zmax: 2,
+    hovertemplate: 'X: %{x:.1f}m<br>Y: %{y:.1f}m<br>Density: %{z:.2f}/m²<extra></extra>',
+    showscale: true,
+    colorbar: {
+      title: {
+        text: 'Density (people/m²)',
+        font: { color: '#808080', size: 12 }
+      },
+      tickfont: { color: '#808080' },
+      len: 0.8
+    }
+  }];
+
+  const layout = {
+    title: '',
+    xaxis: {
+      title: 'Distance (meters)',
+      tickfont: { color: '#808080' },
+      titlefont: { color: '#808080' },
+      showgrid: false,
+      zeroline: false
+    },
+    yaxis: {
+      title: 'Distance (meters)',
+      tickfont: { color: '#808080' },
+      titlefont: { color: '#808080' },
+      showgrid: false,
+      zeroline: false,
+      scaleanchor: 'x',
+      scaleratio: 1
+    },
+    margin: { l: 60, r: 60, t: 10, b: 60 },
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { color: '#808080' }
+  };
+
   return (
-    <div className="w-full aspect-video flex items-center justify-center bg-gray-100 rounded-lg">
-      <div className="text-center p-4">
-        <ClipboardList className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-        <p className="text-gray-500 font-medium">Density Data Panel</p>
-        <p className="text-gray-400 text-sm mt-2">This is a placeholder for the density data visualization.</p>
-        <p className="text-gray-400 text-sm mt-1">Implementation coming soon!</p>
-        
-        {densityData && (
-          <div className="mt-3 text-xs text-gray-500">
-            Data available for: {formatTimestamp(densityData.timestamp)}
-          </div>
+    <div className="w-full">
+      <div className="w-full aspect-video bg-white rounded-lg overflow-hidden border">
+        <Plot
+          data={plotData as any}
+          layout={layout as any}
+          config={{ displayModeBar: false, responsive: true }}
+          style={{ width: '100%', height: '100%' }}
+          useResizeHandler
+        />
+      </div>
+
+      <div className="mt-2 text-xs text-gray-500 space-y-1">
+        <div>Captured: {formatTimestamp(densityData.timestamp)}</div>
+        <div>Grid: {dataWidth} × {dataHeight} cells ({physicalWidth}m × {physicalHeight}m)</div>
+        {heatmapConfig && (
+          <div>Crop area: [{heatmapConfig.join(', ')}] meters</div>
         )}
       </div>
     </div>
