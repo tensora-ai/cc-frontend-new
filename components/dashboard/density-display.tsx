@@ -7,7 +7,7 @@ import { ClipboardList, AlertTriangle, RefreshCw, Maximize2 } from "lucide-react
 import Plot from 'react-plotly.js';
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
-import { DensityData } from "@/models/dashboard";
+import { DensityResponse } from "@/models/dashboard";
 
 interface DensityDisplayProps {
   projectId: string;
@@ -28,7 +28,7 @@ export function DensityDisplay({
   heatmapConfig,
   forceLoading = false
 }: DensityDisplayProps) {
-  const [densityData, setDensityData] = useState<DensityData | null>(null);
+  const [densityResponse, setDensityResponse] = useState<DensityResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -54,9 +54,8 @@ export function DensityDisplay({
           throw new Error(`Failed to fetch density data: ${response.statusText}`);
         }
 
-        const densityData: DensityData = await response.json();
-        console.log("Density data fetched:", densityData);
-        setDensityData(densityData);
+        const densityResponse: DensityResponse = await response.json();
+        setDensityResponse(densityResponse);
         
         setLoading(false);
       } catch (err) {
@@ -89,7 +88,7 @@ export function DensityDisplay({
   };
   
   const handleOpenDialog = () => {
-    if (densityData && densityData.data) {
+    if (densityResponse && densityResponse.data) {
       setIsDialogOpen(true);
     }
   };
@@ -117,7 +116,7 @@ export function DensityDisplay({
     );
   }
 
-  if (!densityData || densityData.data.length === 0) {
+  if (!densityResponse || densityResponse.data.length === 0) {
     return (
       <div className="w-full aspect-video flex items-center justify-center bg-gray-100 rounded-lg">
         <div className="text-center p-4">
@@ -129,7 +128,7 @@ export function DensityDisplay({
     );
   }
 
-  const data = densityData.data;
+  const data = densityResponse.data;
   const dataHeight = data.length;
   const dataWidth = data[0]?.length || 0;
 
@@ -222,7 +221,7 @@ export function DensityDisplay({
       </div>
 
       <div className="mt-2 text-xs text-gray-500 space-y-1">
-        <div>Captured: {formatTimestamp(densityData.timestamp)}</div>
+        <div>Captured: {formatTimestamp(densityResponse.timestamp)}</div>
         <div>Grid: {dataWidth} × {dataHeight} cells ({physicalWidth}m × {physicalHeight}m)</div>
         {heatmapConfig && (
           <div>Crop area: [{heatmapConfig.join(', ')}] meters</div>
@@ -234,9 +233,9 @@ export function DensityDisplay({
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         title={`Density: ${cameraId} (${positionId})`}
-        timestamp={formatTimestamp(densityData.timestamp)}
+        timestamp={formatTimestamp(densityResponse.timestamp)}
         displayType="density"
-        densityData={densityData.data}
+        densityData={densityResponse.data}
         heatmapConfig={heatmapConfig}
       />
     </div>

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiUrl, getApiHeaders } from "@/lib/api-config";
-import { DensityData } from "@/models/dashboard";
 
 export async function GET(
   request: NextRequest,

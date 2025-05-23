@@ -47,7 +47,7 @@ export interface CameraImage {
   position: string;
 }
 
-export interface DensityData {
+export interface DensityResponse {
   data: number[][];  // 2D array of density values
   timestamp: string;  // UTC ISO format
 }
