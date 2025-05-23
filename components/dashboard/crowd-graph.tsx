@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { TimeSeriesPoint } from "@/models/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, BarChart3, Info } from "lucide-react";
+import { AlertTriangle, BarChart3, Info, MousePointerClick } from "lucide-react";
 import { 
   LineChart, 
   Line, 
@@ -15,7 +15,8 @@ import {
   Tooltip, 
   ResponsiveContainer, 
   TooltipProps,
-  ReferenceDot 
+  ReferenceDot,
+  ReferenceLine
 } from "recharts";
 
 interface CrowdGraphProps {
@@ -61,6 +62,13 @@ export function CrowdGraph({ data, isLoading, onPointClick, error }: CrowdGraphP
     setChartData(formattedData);
   }, [data]);
   
+  // Make sure the selectedPoint is reset when data changes
+  useEffect(() => {
+    if (data.length > 0 && selectedPoint && !data.some(point => point.timestamp === selectedPoint)) {
+      setSelectedPoint(null);
+    }
+  }, [data, selectedPoint]);
+  
   // Calculate y-axis domain with 10% padding above maximum
   const calculateYDomain = () => {
     if (!data || data.length === 0) return [0, 10];
@@ -94,6 +102,16 @@ export function CrowdGraph({ data, isLoading, onPointClick, error }: CrowdGraphP
       setSelectedPoint(clickedData.timestamp);
       onPointClick(clickedData.timestamp);
     }
+  };
+  
+  // Add selected time display
+  const formatSelectedTime = () => {
+    if (!selectedPoint || chartData.length === 0) return null;
+    
+    const selectedData = chartData.find(point => point.timestamp === selectedPoint);
+    if (!selectedData) return null;
+    
+    return format(selectedData.time, "MMMM d, yyyy HH:mm:ss");
   };
   
   // Loading state
@@ -168,55 +186,91 @@ export function CrowdGraph({ data, isLoading, onPointClick, error }: CrowdGraphP
   }
   
   return (
-    <div className="w-full h-64">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={chartData}
-          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-          onClick={handleGraphClick}
-          className="cursor-pointer"
-        >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-          <XAxis 
-            dataKey="timeFormatted"
-            tickMargin={10}
-            tickLine={false}
-            axisLine={false}
-            minTickGap={30}
-          />
-          <YAxis 
-            domain={calculateYDomain()}
-            tickMargin={10}
-            tickLine={false}
-            axisLine={false}
-            width={40}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Line
-            type="monotone"
-            dataKey="count"
-            stroke="var(--tensora-medium)"
-            strokeWidth={2.5}
-            dot={false}
-            activeDot={{ r: 6, fill: "var(--tensora-dark)" }}
-          />
-          
-          {/* Show selected point with a reference dot */}
-          {selectedPoint && chartData.map((point, index) => (
-            point.timestamp === selectedPoint ? (
-              <ReferenceDot
-                key={index}
-                x={point.timeFormatted}
-                y={point.count}
-                r={6}
-                fill="var(--tensora-dark)"
-                stroke="white"
-                strokeWidth={2}
-              />
-            ) : null
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
+    <div className="w-full">
+      {/* Helpful user hint about interactivity */}
+      <div className="flex items-center gap-2 mb-3 text-sm text-gray-600 bg-blue-50 p-2 rounded-md border border-blue-100">
+        <MousePointerClick className="h-4 w-4 text-blue-500 flex-shrink-0" />
+        <p>
+          Click on any point in the graph to view corresponding camera images, heatmaps, and density data at that specific time.
+        </p>
+      </div>
+      
+      {/* Selected time indicator */}
+      {selectedPoint && (
+        <div className="mb-3 p-2 bg-[var(--tensora-light)]/10 border border-[var(--tensora-medium)]/20 rounded-md">
+          <p className="text-sm font-medium flex items-center">
+            <span className="inline-block h-3 w-3 bg-[var(--tensora-dark)] rounded-full mr-2"></span>
+            Selected Time: <span className="ml-1 text-[var(--tensora-dark)]">{formatSelectedTime()}</span>
+          </p>
+        </div>
+      )}
+      
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={chartData}
+            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+            onClick={handleGraphClick}
+            className="cursor-pointer"
+          >
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+            <XAxis 
+              dataKey="timeFormatted"
+              tickMargin={10}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={30}
+            />
+            <YAxis 
+              domain={calculateYDomain()}
+              tickMargin={10}
+              tickLine={false}
+              axisLine={false}
+              width={40}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Line
+              type="monotone"
+              dataKey="count"
+              stroke="var(--tensora-medium)"
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 6, fill: "var(--tensora-dark)" }}
+            />
+            
+            {/* Show selected point with enhanced visibility - note this is separate from the tooltip hover */}
+            {selectedPoint && chartData.map((point, index) => (
+              point.timestamp === selectedPoint ? (
+                <React.Fragment key={index}>
+                  {/* Vertical reference line */}
+                  <ReferenceLine 
+                    x={point.timeFormatted} 
+                    stroke="var(--tensora-dark)" 
+                    strokeDasharray="3 3"
+                    strokeWidth={1.5}
+                    label={{
+                      value: 'Selected Time',
+                      position: 'top',
+                      fill: 'var(--tensora-dark)',
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
+                  />
+                  {/* The highlighted point */}
+                  <ReferenceDot
+                    x={point.timeFormatted}
+                    y={point.count}
+                    r={8}
+                    fill="var(--tensora-dark)"
+                    stroke="white"
+                    strokeWidth={2}
+                  />
+                </React.Fragment>
+              ) : null
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

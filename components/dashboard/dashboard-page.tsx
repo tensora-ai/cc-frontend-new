@@ -72,6 +72,15 @@ export default function DashboardPage() {
     setClickedTimestamp(null);
   };
   
+  // Function to set the clicked timestamp to the latest data point
+  const selectLatestDataPoint = useCallback(() => {
+    if (timeSeriesData.length > 0) {
+      // Find the latest timestamp in the data
+      const latestPoint = timeSeriesData[timeSeriesData.length - 1];
+      setClickedTimestamp(latestPoint.timestamp);
+    }
+  }, [timeSeriesData]);
+  
   // Handle apply button - fetch data
   const handleApplySettings = async () => {
     if (!projectId || !selectedArea) return;
@@ -122,6 +131,11 @@ export default function DashboardPage() {
         // Success - we have valid data
         setTimeSeriesData(data.time_series);
         setDashboardState('success');
+        
+        // Auto-select the latest data point when data is loaded
+        setTimeout(() => {
+          selectLatestDataPoint();
+        }, 100);
       }
       
     } catch (err) {
