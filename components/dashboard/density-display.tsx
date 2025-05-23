@@ -8,6 +8,7 @@ import Plot from 'react-plotly.js';
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 import { DensityResponse } from "@/models/dashboard";
+import { time } from "console";
 
 interface DensityDisplayProps {
   projectId: string;
@@ -44,21 +45,37 @@ export function DensityDisplay({
         // Construct the blob path directly
         // Format: {project_id}-{camera_id}-{position}-{timestamp}_density.json
         const formattedTimestamp = timestamp.replace(/[-:]/g, '_').replace('T', '-').replace('Z', '');
-        const blobPath = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_density.json`;
+        const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_density.json`;
         
         // Use the direct blob access endpoint
-        const blobUrl = `/api/blobs/predictions/${blobPath}`;
+        const blobUrl = `/api/blobs/predictions/${blobName}`;
         
         // Fetch the density data
         const response = await fetch(blobUrl);
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch density data: ${response.statusText}`);
+          if (response.status === 404) {
+            // Handle missing blob gracefully
+            setError(`No data available for this timestamp`);
+          } else {
+            // Handle other errors
+            setError(`Failed to fetch data: ${response.statusText}`);
+          }
+          setLoading(false);
+          return;
         }
 
+        // Get heatmap as blob
+        const blob = await response.blob();
+        
         // Parse the JSON response
-        const densityData: DensityResponse = await response.json();
-        setDensityResponse(densityData);
+        const text = await blob.text();
+        const densityData: number[][] = JSON.parse(text);
+        const densityResponse: DensityResponse = {
+          data: densityData,
+          timestamp: timestamp
+        };
+        setDensityResponse(densityResponse);
         
         setLoading(false);
       } catch (err) {

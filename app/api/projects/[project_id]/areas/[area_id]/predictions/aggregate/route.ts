@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiUrl, getApiHeaders } from "@/lib/api-config";
-import { AggregateTimeSeriesRequest } from "@/models/dashboard";
+import { AggregateTimeSeriesRequest, AggregateTimeSeriesResponse } from "@/models/dashboard";
 
 export async function POST(
   request: NextRequest,
@@ -34,7 +34,7 @@ export async function POST(
       );
     }
     
-    const data = await response.json();
+    const data: AggregateTimeSeriesResponse = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error("API error aggregating predictions:", error);

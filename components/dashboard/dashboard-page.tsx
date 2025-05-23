@@ -252,19 +252,15 @@ export default function DashboardPage() {
   
   // Get the timestamp to use for display
   const getDisplayTimestamp = useCallback((
-    cameraId: string,
-    positionId: string
-  ): string => {
-    // Use clicked timestamp if available, otherwise use the selected date
-    if (clickedTimestamp) {
-      // Find the nearest available timestamp for this camera/position
-      return findNearestTimestamp(cameraId, positionId, clickedTimestamp);
-    }
-    
-    // Convert selected date to UTC and format
-    const utcDate = fromZonedTime(selectedDate, timeZone);
-    return format(utcDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
-  }, [clickedTimestamp, selectedDate, timeZone, findNearestTimestamp]);
+  cameraId: string,
+  positionId: string
+): string => {
+  // Determine the target timestamp (either clicked point or selected date)
+  const targetTimestamp = clickedTimestamp || format(fromZonedTime(selectedDate, timeZone), "yyyy-MM-dd'T'HH:mm:ss'Z'");
+  
+  // Always find the nearest available timestamp for this camera/position
+  return findNearestTimestamp(cameraId, positionId, targetTimestamp);
+}, [clickedTimestamp, selectedDate, timeZone, findNearestTimestamp]);
   
   // Check if we have valid prediction data
   const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;

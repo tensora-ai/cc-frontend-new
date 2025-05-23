@@ -43,20 +43,36 @@ export function ImageDisplay({
         // Construct the blob path directly
         // Format: {project_id}-{camera_id}-{position}-{timestamp}_image.jpg
         const formattedTimestamp = timestamp.replace(/[-:]/g, '_').replace('T', '-').replace('Z', '');
-        const blobPath = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_image.jpg`;
+        const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_small.jpg`;
         
         // Use the direct blob access endpoint
-        const blobUrl = `/api/blobs/images/${blobPath}`;
+        const blobUrl = `/api/blobs/images/${blobName}`;
+
+        console.log("Fetching image from:", blobUrl);
         
-        // Check if the blob exists by making a HEAD request
-        const response = await fetch(blobUrl, { method: 'HEAD' });
+        // Get the image blob
+        const response = await fetch(blobUrl);
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch image: ${response.statusText}`);
+          if (response.status === 404) {
+            // Handle missing blob gracefully
+            setError(`No data available for this timestamp`);
+          } else {
+            // Handle other errors
+            setError(`Failed to fetch data: ${response.statusText}`);
+          }
+          setLoading(false);
+          return;
         }
+
+        // Get image as blob
+        const blob = await response.blob();
+        
+        // Create a local URL for the blob
+        const objectUrl = URL.createObjectURL(blob);
         
         // Set the image URL
-        setImageUrl(blobUrl);
+        setImageUrl(objectUrl);
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch image:", err);

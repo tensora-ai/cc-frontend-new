@@ -20,10 +20,17 @@ export interface AggregateTimeSeriesRequest {
   half_moving_avg_size: number;
 }
 
+export interface CameraTimestamp {
+  camera_id: string;
+  position: string;
+  timestamp: string;  // UTC ISO format
+}
+
 export interface AggregateTimeSeriesResponse {
   time_series: TimeSeriesPoint[];
-  source_ids: string[];
+  camera_timestamps: CameraTimestamp[];
 }
+
 
 export interface DensityPoint {
   x: number;
