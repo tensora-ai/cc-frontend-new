@@ -10,24 +10,21 @@ import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 
 interface ImageDisplayProps {
   projectId: string;
-  areaId: string;
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
-  forceLoading?: boolean; // New prop to force loading state
+  forceLoading?: boolean; // Used to force loading state when timestamp changes
 }
 
 export function ImageDisplay({
   projectId,
-  areaId,
   cameraId,
   positionId,
   timestamp,
   forceLoading = false
 }: ImageDisplayProps) {
-  // State for image URL (created from blob) and loading
+  // State for image URL and loading
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [captureTimestamp, setCaptureTimestamp] = useState<string>(timestamp);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -36,55 +33,40 @@ export function ImageDisplay({
   
   // Fetch image when parameters change
   useEffect(() => {
-    let objectUrl: string | null = null;
-    
     async function fetchImageData() {
-      if (!projectId || !areaId || !cameraId || !positionId || !timestamp) return;
+      if (!projectId || !cameraId || !positionId || !timestamp) return;
       
       try {
         setLoading(true);
         setError(null);
         
-        // Call the nearest-camera-image endpoint
-        const response = await fetch(
-          `/api/projects/${projectId}/areas/${areaId}/nearest-camera-image?` +
-          `camera_id=${encodeURIComponent(cameraId)}&` +
-          `position_id=${encodeURIComponent(positionId)}&` +
-          `timestamp=${encodeURIComponent(timestamp)}`
-        );
+        // Construct the blob path directly
+        // Format: {project_id}-{camera_id}-{position}-{timestamp}_image.jpg
+        const formattedTimestamp = timestamp.replace(/[-:]/g, '_').replace('T', '-').replace('Z', '');
+        const blobPath = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_image.jpg`;
+        
+        // Use the direct blob access endpoint
+        const blobUrl = `/api/blobs/images/${blobPath}`;
+        
+        // Check if the blob exists by making a HEAD request
+        const response = await fetch(blobUrl, { method: 'HEAD' });
         
         if (!response.ok) {
           throw new Error(`Failed to fetch image: ${response.statusText}`);
         }
         
-        // Get image as blob instead of JSON
-        const blob = await response.blob();
-        
-        // Create a local URL for the blob
-        objectUrl = URL.createObjectURL(blob);
-        setImageUrl(objectUrl);
-        
-        // Try to get timestamp from X-Nearest-Timestamp header, fallback to request timestamp
-        const nearestTimestamp = response.headers.get('X-Nearest-Timestamp') || timestamp;
-        setCaptureTimestamp(nearestTimestamp);
-        
+        // Set the image URL
+        setImageUrl(blobUrl);
         setLoading(false);
       } catch (err) {
-        console.error("Failed to fetch image data:", err);
+        console.error("Failed to fetch image:", err);
         setError("Failed to load camera image. Please try again.");
         setLoading(false);
       }
     }
     
     fetchImageData();
-    
-    // Clean up function to revoke object URL when component unmounts or dependencies change
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [projectId, areaId, cameraId, positionId, timestamp]);
+  }, [projectId, cameraId, positionId, timestamp]);
   
   // Handle force loading
   useEffect(() => {
@@ -169,7 +151,7 @@ export function ImageDisplay({
       
       {/* Image info */}
       <div className="mt-2 text-xs text-gray-500">
-        Captured: {formatTimestamp(captureTimestamp)}
+        Captured: {formatTimestamp(timestamp)}
       </div>
       
       {/* Fullscreen dialog */}
@@ -177,7 +159,7 @@ export function ImageDisplay({
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         title={`Camera View: ${cameraId} (${positionId})`}
-        timestamp={formatTimestamp(captureTimestamp)}
+        timestamp={formatTimestamp(timestamp)}
         displayType="image"
         imageUrl={imageUrl}
       />

@@ -20,7 +20,11 @@ import { DensityDisplay } from "@/components/dashboard/density-display";
 
 // Import types
 import { Project, CameraConfig } from "@/models/project";
-import { AggregateTimeSeriesResponse, TimeSeriesPoint } from "@/models/dashboard";
+import { 
+  AggregateTimeSeriesResponse, 
+  TimeSeriesPoint, 
+  CameraTimestamp 
+} from "@/models/dashboard";
 
 // Dashboard states
 type DashboardState = 'initial' | 'loading' | 'success' | 'error' | 'empty';
@@ -50,6 +54,7 @@ export default function DashboardPage() {
   // Dashboard state management
   const [dashboardState, setDashboardState] = useState<DashboardState>('initial');
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
+  const [cameraTimestamps, setCameraTimestamps] = useState<CameraTimestamp[]>([]);
   const [dataError, setDataError] = useState<string | null>(null);
   
   // State for clicked point on graph
@@ -80,6 +85,41 @@ export default function DashboardPage() {
       setClickedTimestamp(latestPoint.timestamp);
     }
   }, [timeSeriesData]);
+
+  // Find the nearest available timestamp for a camera configuration
+  const findNearestTimestamp = useCallback((
+    cameraId: string, 
+    positionId: string, 
+    targetTimestamp: string
+  ): string => {
+    // If there are no timestamps, return the target timestamp
+    if (cameraTimestamps.length === 0) {
+      return targetTimestamp;
+    }
+
+    // Filter timestamps for this camera/position
+    const relevantTimestamps = cameraTimestamps.filter(
+      ct => ct.camera_id === cameraId && ct.position === positionId
+    );
+
+    // If no relevant timestamps, return the target timestamp
+    if (relevantTimestamps.length === 0) {
+      return targetTimestamp;
+    }
+
+    // Find the nearest timestamp
+    const targetTime = new Date(targetTimestamp).getTime();
+    
+    // Sort by time difference
+    relevantTimestamps.sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return Math.abs(timeA - targetTime) - Math.abs(timeB - targetTime);
+    });
+
+    // Return the nearest timestamp
+    return relevantTimestamps[0].timestamp;
+  }, [cameraTimestamps]);
   
   // Handle apply button - fetch data
   const handleApplySettings = async () => {
@@ -127,9 +167,11 @@ export default function DashboardPage() {
         setDataError("No prediction data available within the selected time range.");
         setDashboardState('empty');
         setTimeSeriesData([]);
+        setCameraTimestamps([]);
       } else {
         // Success - we have valid data
         setTimeSeriesData(data.time_series);
+        setCameraTimestamps(data.camera_timestamps || []);
         setDashboardState('success');
         
         // Auto-select the latest data point when data is loaded
@@ -208,17 +250,21 @@ export default function DashboardPage() {
   // Get stats
   const stats = calculateStats();
   
-  // Get the timestamp to use for image/heatmap/density fetching
-  const getDisplayTimestamp = useCallback(() => {
+  // Get the timestamp to use for display
+  const getDisplayTimestamp = useCallback((
+    cameraId: string,
+    positionId: string
+  ): string => {
     // Use clicked timestamp if available, otherwise use the selected date
     if (clickedTimestamp) {
-      return clickedTimestamp;
+      // Find the nearest available timestamp for this camera/position
+      return findNearestTimestamp(cameraId, positionId, clickedTimestamp);
     }
     
     // Convert selected date to UTC and format
     const utcDate = fromZonedTime(selectedDate, timeZone);
     return format(utcDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
-  }, [clickedTimestamp, selectedDate, timeZone]);
+  }, [clickedTimestamp, selectedDate, timeZone, findNearestTimestamp]);
   
   // Check if we have valid prediction data
   const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;
@@ -316,7 +362,7 @@ export default function DashboardPage() {
     
     return cameraConfigs.map((config) => {
       // Find the camera for this config to get the name
-      const displayTimestamp = getDisplayTimestamp();
+      const cameraTimestamp = getDisplayTimestamp(config.camera_id, config.position.name);
       
       return (
         <div key={config.id} className="bg-white rounded-lg border shadow-sm p-4 mb-6">
@@ -330,10 +376,9 @@ export default function DashboardPage() {
               <h4 className="text-md font-medium mb-3">Camera View</h4>
               <ImageDisplay 
                 projectId={projectId}
-                areaId={selectedArea}
                 cameraId={config.camera_id}
                 positionId={config.position.name}
-                timestamp={displayTimestamp}
+                timestamp={cameraTimestamp}
                 forceLoading={displayComponentsLoading}
               />
             </div>
@@ -343,10 +388,9 @@ export default function DashboardPage() {
               <h4 className="text-md font-medium mb-3">Heatmap</h4>
               <HeatmapDisplay
                 projectId={projectId}
-                areaId={selectedArea}
                 cameraId={config.camera_id}
                 positionId={config.position.name}
-                timestamp={displayTimestamp}
+                timestamp={cameraTimestamp}
                 forceLoading={displayComponentsLoading}
               />
             </div>
@@ -356,10 +400,9 @@ export default function DashboardPage() {
               <h4 className="text-md font-medium mb-3">m²-Density</h4>
               <DensityDisplay
                 projectId={projectId}
-                areaId={selectedArea}
                 cameraId={config.camera_id}
                 positionId={config.position.name}
-                timestamp={displayTimestamp}
+                timestamp={cameraTimestamp}
                 forceLoading={displayComponentsLoading}
               />
             </div>
@@ -446,6 +489,7 @@ export default function DashboardPage() {
             // Reset dashboard state when switching areas
             setDashboardState('initial');
             setTimeSeriesData([]);
+            setCameraTimestamps([]);
             setDataError(null);
             setClickedTimestamp(null);
           }}

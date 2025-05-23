@@ -10,7 +10,6 @@ import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 
 interface HeatmapDisplayProps {
   projectId: string;
-  areaId: string;
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
@@ -19,7 +18,6 @@ interface HeatmapDisplayProps {
 
 export function HeatmapDisplay({
   projectId,
-  areaId,
   cameraId,
   positionId,
   timestamp,
@@ -27,7 +25,6 @@ export function HeatmapDisplay({
 }: HeatmapDisplayProps) {
   // State for heatmap image URL (created from blob) and loading
   const [heatmapUrl, setHeatmapUrl] = useState<string | null>(null);
-  const [captureTimestamp, setCaptureTimestamp] = useState<string>(timestamp);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -36,38 +33,30 @@ export function HeatmapDisplay({
   
   // Fetch heatmap when parameters change
   useEffect(() => {
-    let objectUrl: string | null = null;
-    
     async function fetchHeatmap() {
-      if (!projectId || !areaId || !cameraId || !positionId || !timestamp) return;
+      if (!projectId || !cameraId || !positionId || !timestamp) return;
       
       try {
         setLoading(true);
         setError(null);
         
-        // Call the nearest-heatmap endpoint
-        const response = await fetch(
-          `/api/projects/${projectId}/areas/${areaId}/nearest-heatmap?` +
-          `camera_id=${encodeURIComponent(cameraId)}&` +
-          `position_id=${encodeURIComponent(positionId)}&` +
-          `timestamp=${encodeURIComponent(timestamp)}`
-        );
+        // Construct the blob path directly
+        // Format: {project_id}-{camera_id}-{position}-{timestamp}_heatmap.png
+        const formattedTimestamp = timestamp.replace(/[-:]/g, '_').replace('T', '-').replace('Z', '');
+        const blobPath = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_heatmap.png`;
+        
+        // Use the direct blob access endpoint
+        const blobUrl = `/api/blobs/predictions/${blobPath}`;
+        
+        // Check if the blob exists by making a HEAD request
+        const response = await fetch(blobUrl, { method: 'HEAD' });
         
         if (!response.ok) {
           throw new Error(`Failed to fetch heatmap: ${response.statusText}`);
         }
         
-        // Get heatmap as blob instead of JSON
-        const blob = await response.blob();
-        
-        // Create a local URL for the blob
-        objectUrl = URL.createObjectURL(blob);
-        setHeatmapUrl(objectUrl);
-        
-        // Try to get timestamp from X-Nearest-Timestamp header, fallback to request timestamp
-        const nearestTimestamp = response.headers.get('X-Nearest-Timestamp') || timestamp;
-        setCaptureTimestamp(nearestTimestamp);
-        
+        // Set the heatmap URL
+        setHeatmapUrl(blobUrl);
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch heatmap data:", err);
@@ -77,14 +66,7 @@ export function HeatmapDisplay({
     }
     
     fetchHeatmap();
-    
-    // Clean up function to revoke object URL when component unmounts or dependencies change
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [projectId, areaId, cameraId, positionId, timestamp]);
+  }, [projectId, cameraId, positionId, timestamp]);
   
   // Handle force loading
   useEffect(() => {
@@ -181,7 +163,7 @@ export function HeatmapDisplay({
       
       {/* Timestamp */}
       <div className="mt-2 text-xs text-gray-500">
-        Captured: {formatTimestamp(captureTimestamp)}
+        Captured: {formatTimestamp(timestamp)}
       </div>
       
       {/* Fullscreen dialog */}
@@ -189,7 +171,7 @@ export function HeatmapDisplay({
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         title={`Heatmap: ${cameraId} (${positionId})`}
-        timestamp={formatTimestamp(captureTimestamp)}
+        timestamp={formatTimestamp(timestamp)}
         displayType="heatmap"
         imageUrl={heatmapUrl}
       />

@@ -11,7 +11,6 @@ import { DensityResponse } from "@/models/dashboard";
 
 interface DensityDisplayProps {
   projectId: string;
-  areaId: string;
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
@@ -21,7 +20,6 @@ interface DensityDisplayProps {
 
 export function DensityDisplay({
   projectId,
-  areaId,
   cameraId,
   positionId,
   timestamp,
@@ -37,25 +35,30 @@ export function DensityDisplay({
 
   useEffect(() => {
     async function fetchDensityData() {
-      if (!projectId || !areaId || !cameraId || !positionId || !timestamp) return;
+      if (!projectId || !cameraId || !positionId || !timestamp) return;
 
       try {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(
-          `/api/projects/${projectId}/areas/${areaId}/nearest-density?` +
-          `camera_id=${encodeURIComponent(cameraId)}&` +
-          `position_id=${encodeURIComponent(positionId)}&` +
-          `timestamp=${encodeURIComponent(timestamp)}`
-        );
+        // Construct the blob path directly
+        // Format: {project_id}-{camera_id}-{position}-{timestamp}_density.json
+        const formattedTimestamp = timestamp.replace(/[-:]/g, '_').replace('T', '-').replace('Z', '');
+        const blobPath = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_density.json`;
+        
+        // Use the direct blob access endpoint
+        const blobUrl = `/api/blobs/predictions/${blobPath}`;
+        
+        // Fetch the density data
+        const response = await fetch(blobUrl);
 
         if (!response.ok) {
           throw new Error(`Failed to fetch density data: ${response.statusText}`);
         }
 
-        const densityResponse: DensityResponse = await response.json();
-        setDensityResponse(densityResponse);
+        // Parse the JSON response
+        const densityData: DensityResponse = await response.json();
+        setDensityResponse(densityData);
         
         setLoading(false);
       } catch (err) {
@@ -66,7 +69,7 @@ export function DensityDisplay({
     }
 
     fetchDensityData();
-  }, [projectId, areaId, cameraId, positionId, timestamp]);
+  }, [projectId, cameraId, positionId, timestamp]);
 
   useEffect(() => {
     if (forceLoading) {
@@ -221,7 +224,7 @@ export function DensityDisplay({
       </div>
 
       <div className="mt-2 text-xs text-gray-500 space-y-1">
-        <div>Captured: {formatTimestamp(densityResponse.timestamp)}</div>
+        <div>Captured: {formatTimestamp(timestamp)}</div>
         <div>Grid: {dataWidth} × {dataHeight} cells ({physicalWidth}m × {physicalHeight}m)</div>
         {heatmapConfig && (
           <div>Crop area: [{heatmapConfig.join(', ')}] meters</div>
@@ -233,7 +236,7 @@ export function DensityDisplay({
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         title={`Density: ${cameraId} (${positionId})`}
-        timestamp={formatTimestamp(densityResponse.timestamp)}
+        timestamp={formatTimestamp(timestamp)}
         displayType="density"
         densityData={densityResponse.data}
         heatmapConfig={heatmapConfig}
