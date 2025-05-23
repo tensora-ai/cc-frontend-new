@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
-import { BarChart2, FileWarning, RefreshCw } from "lucide-react";
+import { BarChart2, FileWarning, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 
 interface HeatmapDisplayProps {
   projectId: string;
@@ -28,6 +30,9 @@ export function HeatmapDisplay({
   const [captureTimestamp, setCaptureTimestamp] = useState<string>(timestamp);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // State for fullscreen dialog
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   // Fetch heatmap when parameters change
   useEffect(() => {
@@ -59,9 +64,9 @@ export function HeatmapDisplay({
         objectUrl = URL.createObjectURL(blob);
         setHeatmapUrl(objectUrl);
         
-        // Try to get timestamp from response headers, fallback to request timestamp
-        const captureTime = response.headers.get('X-Capture-Timestamp') || timestamp;
-        setCaptureTimestamp(captureTime);
+        // Try to get timestamp from X-Nearest-Timestamp header, fallback to request timestamp
+        const nearestTimestamp = response.headers.get('X-Nearest-Timestamp') || timestamp;
+        setCaptureTimestamp(nearestTimestamp);
         
         setLoading(false);
       } catch (err) {
@@ -111,6 +116,12 @@ export function HeatmapDisplay({
     }
   };
   
+  const handleOpenDialog = () => {
+    if (heatmapUrl) {
+      setIsDialogOpen(true);
+    }
+  };
+  
   // Loading state
   if (loading) {
     return (
@@ -149,7 +160,10 @@ export function HeatmapDisplay({
   
   return (
     <div className="w-full">
-      <div className="w-full aspect-video bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center">
+      <div 
+        className="w-full aspect-video bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center relative group cursor-pointer"
+        onClick={handleOpenDialog}
+      >
         <Image
           src={heatmapUrl}
           alt="Heat map visualization"
@@ -158,12 +172,27 @@ export function HeatmapDisplay({
           className="max-w-full max-h-full object-contain"
           unoptimized // Use this for blob URLs since Next.js Image optimization doesn't work with them
         />
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <Button variant="secondary" size="sm" className="bg-white/80">
+            <Maximize2 className="h-4 w-4 mr-1" /> Enlarge
+          </Button>
+        </div>
       </div>
       
       {/* Timestamp */}
       <div className="mt-2 text-xs text-gray-500">
         Captured: {formatTimestamp(captureTimestamp)}
       </div>
+      
+      {/* Fullscreen dialog */}
+      <FullscreenDisplayDialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        title={`Heatmap: ${cameraId} (${positionId})`}
+        timestamp={formatTimestamp(captureTimestamp)}
+        displayType="heatmap"
+        imageUrl={heatmapUrl}
+      />
     </div>
   );
 }

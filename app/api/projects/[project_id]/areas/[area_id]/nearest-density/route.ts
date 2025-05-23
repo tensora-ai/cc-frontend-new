@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiUrl, getApiHeaders } from "@/lib/api-config";
+import { DensityData } from "@/models/dashboard";
 
 export async function GET(
   request: NextRequest,
@@ -40,13 +41,16 @@ export async function GET(
         { status: response.status }
       );
     }
-    
-    // Return the density data
+
     const densityData = await response.json();
-    return NextResponse.json({
+    const nearestTimestamp = response.headers.get("X-Nearest-Timestamp");
+
+    const densityResponse = {
       data: densityData,
-      timestamp: timestamp // The backend should return a timestamp, but we'll use the requested one for now
-    });
+      timestamp: nearestTimestamp,
+    }
+
+    return NextResponse.json(densityResponse);;
   } catch (error) {
     console.error("API error fetching density data:", error);
     return NextResponse.json(

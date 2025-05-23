@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
-import { ImageOff, RefreshCw } from "lucide-react";
+import { ImageOff, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 
 interface ImageDisplayProps {
   projectId: string;
@@ -28,6 +30,9 @@ export function ImageDisplay({
   const [captureTimestamp, setCaptureTimestamp] = useState<string>(timestamp);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // State for fullscreen dialog
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   // Fetch image when parameters change
   useEffect(() => {
@@ -59,9 +64,9 @@ export function ImageDisplay({
         objectUrl = URL.createObjectURL(blob);
         setImageUrl(objectUrl);
         
-        // Try to get timestamp from response headers, fallback to request timestamp
-        const captureTime = response.headers.get('X-Capture-Timestamp') || timestamp;
-        setCaptureTimestamp(captureTime);
+        // Try to get timestamp from X-Nearest-Timestamp header, fallback to request timestamp
+        const nearestTimestamp = response.headers.get('X-Nearest-Timestamp') || timestamp;
+        setCaptureTimestamp(nearestTimestamp);
         
         setLoading(false);
       } catch (err) {
@@ -111,6 +116,12 @@ export function ImageDisplay({
     }
   };
   
+  const handleOpenDialog = () => {
+    if (imageUrl) {
+      setIsDialogOpen(true);
+    }
+  };
+  
   // Loading state
   if (loading) {
     return (
@@ -137,7 +148,10 @@ export function ImageDisplay({
   
   return (
     <div className="w-full">
-      <div className="w-full aspect-video rounded-lg overflow-hidden bg-gray-100">
+      <div 
+        className="w-full aspect-video rounded-lg overflow-hidden bg-gray-100 relative group cursor-pointer"
+        onClick={handleOpenDialog}
+      >
         <Image
           src={imageUrl}
           alt={`Camera view from ${cameraId} (${positionId})`}
@@ -146,12 +160,27 @@ export function ImageDisplay({
           className="w-full h-full object-cover"
           unoptimized // Use this for blob URLs since Next.js Image optimization doesn't work with them
         />
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <Button variant="secondary" size="sm" className="bg-white/80">
+            <Maximize2 className="h-4 w-4 mr-1" /> Enlarge
+          </Button>
+        </div>
       </div>
       
       {/* Image info */}
       <div className="mt-2 text-xs text-gray-500">
         Captured: {formatTimestamp(captureTimestamp)}
       </div>
+      
+      {/* Fullscreen dialog */}
+      <FullscreenDisplayDialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        title={`Camera View: ${cameraId} (${positionId})`}
+        timestamp={formatTimestamp(captureTimestamp)}
+        displayType="image"
+        imageUrl={imageUrl}
+      />
     </div>
   );
 }

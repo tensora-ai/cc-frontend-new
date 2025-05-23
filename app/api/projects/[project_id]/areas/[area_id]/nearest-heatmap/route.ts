@@ -45,8 +45,11 @@ export async function GET(
     // For successful responses, get the image blob and pass it through directly
     const imageBlob = await response.blob();
     
+    // Extract the X-Nearest-Timestamp header if present
+    const nearestTimestamp = response.headers.get('X-Nearest-Timestamp');
+    
     // Create a new response with the same blob and content type
-    return new NextResponse(imageBlob, {
+    const newResponse = new NextResponse(imageBlob, {
       status: 200,
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'image/png',
@@ -54,6 +57,13 @@ export async function GET(
         'Cache-Control': 'no-cache, no-store, must-revalidate',
       }
     });
+    
+    // Add the X-Nearest-Timestamp header if it was present in the backend response
+    if (nearestTimestamp) {
+      newResponse.headers.set('X-Nearest-Timestamp', nearestTimestamp);
+    }
+    
+    return newResponse;
   } catch (error) {
     console.error("API error fetching heatmap:", error);
     return NextResponse.json(

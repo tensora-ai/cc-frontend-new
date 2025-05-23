@@ -3,8 +3,11 @@
 import { useState, useEffect } from "react";
 import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
-import { ClipboardList, AlertTriangle, RefreshCw } from "lucide-react";
+import { ClipboardList, AlertTriangle, RefreshCw, Maximize2 } from "lucide-react";
 import Plot from 'react-plotly.js';
+import { Button } from "@/components/ui/button";
+import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
+import { DensityData } from "@/models/dashboard";
 
 interface DensityDisplayProps {
   projectId: string;
@@ -16,11 +19,6 @@ interface DensityDisplayProps {
   forceLoading?: boolean;
 }
 
-interface DensityResponse {
-  data: number[][];
-  timestamp: string;
-}
-
 export function DensityDisplay({
   projectId,
   areaId,
@@ -30,9 +28,12 @@ export function DensityDisplay({
   heatmapConfig,
   forceLoading = false
 }: DensityDisplayProps) {
-  const [densityData, setDensityData] = useState<DensityResponse | null>(null);
+  const [densityData, setDensityData] = useState<DensityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // State for fullscreen dialog
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     async function fetchDensityData() {
@@ -53,8 +54,10 @@ export function DensityDisplay({
           throw new Error(`Failed to fetch density data: ${response.statusText}`);
         }
 
-        const data = await response.json();
-        setDensityData(data);
+        const densityData: DensityData = await response.json();
+        console.log("Density data fetched:", densityData);
+        setDensityData(densityData);
+        
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch density data:", err);
@@ -84,6 +87,12 @@ export function DensityDisplay({
       return "Unknown time";
     }
   };
+  
+  const handleOpenDialog = () => {
+    if (densityData && densityData.data) {
+      setIsDialogOpen(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -108,7 +117,7 @@ export function DensityDisplay({
     );
   }
 
-  if (!densityData || !densityData.data || densityData.data.length === 0) {
+  if (!densityData || densityData.data.length === 0) {
     return (
       <div className="w-full aspect-video flex items-center justify-center bg-gray-100 rounded-lg">
         <div className="text-center p-4">
@@ -194,7 +203,10 @@ export function DensityDisplay({
 
   return (
     <div className="w-full">
-      <div className="w-full aspect-video bg-white rounded-lg overflow-hidden border">
+      <div 
+        className="w-full aspect-video bg-white rounded-lg overflow-hidden border relative group cursor-pointer"
+        onClick={handleOpenDialog}
+      >
         <Plot
           data={plotData as any}
           layout={layout as any}
@@ -202,6 +214,11 @@ export function DensityDisplay({
           style={{ width: '100%', height: '100%' }}
           useResizeHandler
         />
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <Button variant="secondary" size="sm" className="bg-white/80">
+            <Maximize2 className="h-4 w-4 mr-1" /> Enlarge
+          </Button>
+        </div>
       </div>
 
       <div className="mt-2 text-xs text-gray-500 space-y-1">
@@ -211,6 +228,17 @@ export function DensityDisplay({
           <div>Crop area: [{heatmapConfig.join(', ')}] meters</div>
         )}
       </div>
+      
+      {/* Fullscreen dialog for density display */}
+      <FullscreenDisplayDialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        title={`Density: ${cameraId} (${positionId})`}
+        timestamp={formatTimestamp(densityData.timestamp)}
+        displayType="density"
+        densityData={densityData.data}
+        heatmapConfig={heatmapConfig}
+      />
     </div>
   );
 }
