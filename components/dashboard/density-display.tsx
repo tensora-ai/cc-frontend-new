@@ -8,7 +8,6 @@ import Plot from 'react-plotly.js';
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 import { DensityResponse } from "@/models/dashboard";
-import { time } from "console";
 
 interface DensityDisplayProps {
   projectId: string;
