@@ -35,6 +35,7 @@ export default function DashboardPage() {
   
   // Get the local timezone
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  console.log("Local Time Zone:", timeZone);
   
   // State for project data
   const [project, setProject] = useState<Project | null>(null);
