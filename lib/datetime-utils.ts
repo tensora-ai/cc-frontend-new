@@ -20,8 +20,6 @@ export const convertFromLocalTimeToUtc = (date: Date | string): Date => {
  * Fixed version that properly handles UTC ISO strings
  */
 export const convertFromUtcToLocalTime = (date: Date | string): Date => {
-  console.log("Converting date from UTC to local time:", date);
-  
   // Get the local timezone
   const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   
@@ -36,15 +34,9 @@ export const convertFromUtcToLocalTime = (date: Date | string): Date => {
     utcDate = date;
   }
   
-  console.log("Parsed UTC Date:", utcDate);
-  console.log("UTC timestamp:", utcDate.getTime());
-  
   // toZonedTime takes a UTC date and returns a Date that represents
   // the equivalent local time in the specified timezone
   const localDate = toZonedTime(utcDate, localTimeZone);
-  
-  console.log("Converted local Date:", localDate);
-  console.log("Local timezone:", localTimeZone);
   
   return localDate;
 };
@@ -87,8 +79,6 @@ export const formatUtcToLocalDisplay = (
   options?: Intl.DateTimeFormatOptions
 ): string => {
   try {
-    console.log("Formatting UTC to local display:", date);
-    
     // Convert UTC to local time first
     const localDate = convertFromUtcToLocalTime(date);
     
@@ -109,7 +99,6 @@ export const formatUtcToLocalDisplay = (
     // Format using toLocaleString with the local Date object
     const formatted = localDate.toLocaleString('en-US', formatOptions);
     
-    console.log("Formatted result:", formatted);
     return formatted;
   } catch (error) {
     console.error("Error formatting UTC to local display:", error);

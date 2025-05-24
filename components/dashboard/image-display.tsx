@@ -12,6 +12,7 @@ interface ImageDisplayProps {
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
+  refreshTrigger: number;
   forceLoading?: boolean; // Used to force loading state when timestamp changes
 }
 
@@ -20,8 +21,11 @@ export function ImageDisplay({
   cameraId,
   positionId,
   timestamp,
+  refreshTrigger,
   forceLoading = false
 }: ImageDisplayProps) {
+  console.log("🖼️ ImageDisplay render - received timestamp:", timestamp);
+
   // State for image URL and loading
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +47,8 @@ export function ImageDisplay({
         // Format: {project_id}-{camera_id}-{position}-{timestamp}_image.jpg
         const formattedTimestamp = timestamp.replace(/[-:]/g, '_').replace('T', '-').replace('Z', '');
         const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_small.jpg`;
+
+        console.log("🔄 Fetching image blob:", blobName);
         
         // Use the direct blob access endpoint
         const blobUrl = `/api/blobs/images/${blobName}`;
@@ -78,8 +84,9 @@ export function ImageDisplay({
       }
     }
     
+    console.log("🔄 useEffect triggered with timestamp:", timestamp);
     fetchImageData();
-  }, [projectId, cameraId, positionId, timestamp]);
+  }, [projectId, cameraId, positionId, timestamp, refreshTrigger]);
   
   // Handle force loading
   useEffect(() => {

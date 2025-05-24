@@ -12,6 +12,7 @@ interface HeatmapDisplayProps {
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
+  refreshTrigger: number;
   forceLoading?: boolean; // New prop to force loading state
 }
 
@@ -20,8 +21,11 @@ export function HeatmapDisplay({
   cameraId,
   positionId,
   timestamp,
+  refreshTrigger,
   forceLoading = false
 }: HeatmapDisplayProps) {
+  console.log("🔥 HeatmapDisplay render - received timestamp:", timestamp);  
+
   // State for heatmap image URL (created from blob) and loading
   const [heatmapUrl, setHeatmapUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,8 +84,9 @@ export function HeatmapDisplay({
       }
     }
     
+    console.log("🔄 useEffect triggered with timestamp:", timestamp);
     fetchHeatmap();
-  }, [projectId, cameraId, positionId, timestamp]);
+  }, [projectId, cameraId, positionId, timestamp, refreshTrigger]);
   
   // Handle force loading
   useEffect(() => {

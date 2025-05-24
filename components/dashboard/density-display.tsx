@@ -14,6 +14,7 @@ interface DensityDisplayProps {
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
   heatmapConfig?: [number, number, number, number]; // [left, top, right, bottom]
+  refreshTrigger: number;
   forceLoading?: boolean;
 }
 
@@ -23,8 +24,11 @@ export function DensityDisplay({
   positionId,
   timestamp,
   heatmapConfig,
+  refreshTrigger,
   forceLoading = false
 }: DensityDisplayProps) {
+  console.log("📊 DensityDisplay render - received timestamp:", timestamp);
+
   const [densityResponse, setDensityResponse] = useState<DensityResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +87,9 @@ export function DensityDisplay({
       }
     }
 
+    console.log("🔄 useEffect triggered with timestamp:", timestamp);
     fetchDensityData();
-  }, [projectId, cameraId, positionId, timestamp]);
+  }, [projectId, cameraId, positionId, timestamp, refreshTrigger]);
 
   useEffect(() => {
     if (forceLoading) {
