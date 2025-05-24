@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { parseISO } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
 import { ImageOff, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
+import { convertFromUtcToLocalTime } from "@/lib/datetime-utils";
 
 interface ImageDisplayProps {
   projectId: string;
@@ -47,8 +46,6 @@ export function ImageDisplay({
         
         // Use the direct blob access endpoint
         const blobUrl = `/api/blobs/images/${blobName}`;
-
-        console.log("Fetching image from:", blobUrl);
         
         // Get the image blob
         const response = await fetch(blobUrl);
@@ -97,17 +94,56 @@ export function ImageDisplay({
     }
   }, [forceLoading]);
   
-  // Format timestamp for display in local time
-  const formatTimestamp = (isoString: string) => {
+  // Format timestamp for display in local time - PROPERLY FIXED
+  const formatTimestamp = (utcIsoString: string) => {
     try {
-      // Get the local timezone
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      // Convert UTC ISO string to local time Date object
+      const localDate = convertFromUtcToLocalTime(utcIsoString);
+      console.log("UTC input:", utcIsoString);
+      console.log("Local date object:", localDate);
       
-      // Parse the ISO string
-      const date = parseISO(isoString);
+      // Format the local Date object for human-readable display
+      // This will show the actual local time without any timezone indicators
+      const formatted = localDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false // Use 24-hour format
+      });
       
-      // Format with local time zone
-      return formatInTimeZone(date, timeZone, "MMM d, yyyy HH:mm:ss");
+      console.log("Formatted local time:", formatted);
+      return formatted;
+      
+    } catch (error) {
+      console.error("Error formatting timestamp:", error);
+      return "Unknown time";
+    }
+  };
+  
+  // Alternative version that shows timezone info
+  const formatTimestampWithTimezone = (utcIsoString: string) => {
+    try {
+      const localDate = convertFromUtcToLocalTime(utcIsoString);
+      
+      // Get timezone name
+      const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      const formatted = localDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZoneName: 'short' // This will add timezone abbreviation like "PST", "EST", etc.
+      });
+      
+      return formatted;
+      
     } catch (error) {
       console.error("Error formatting timestamp:", error);
       return "Unknown time";

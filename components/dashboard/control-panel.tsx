@@ -55,6 +55,8 @@ export function ControlPanel({
     const newLocalDate = new Date(date);
     newLocalDate.setHours(newHour);
     newLocalDate.setMinutes(newMinute);
+    newLocalDate.setSeconds(0); // Reset seconds to avoid issues
+    newLocalDate.setMilliseconds(0); // Reset milliseconds to avoid issues
     
     // Pass the local date directly to parent
     onDateChange(newLocalDate);

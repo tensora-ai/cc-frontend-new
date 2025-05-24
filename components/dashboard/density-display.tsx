@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { parseISO } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
 import { ClipboardList, AlertTriangle, RefreshCw, Maximize2 } from "lucide-react";
 import Plot from 'react-plotly.js';
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 import { DensityResponse } from "@/models/dashboard";
+import { convertFromUtcToLocalTime } from "@/lib/datetime-utils";
 
 interface DensityDisplayProps {
   projectId: string;
@@ -95,11 +94,20 @@ export function DensityDisplay({
     }
   }, [forceLoading]);
 
-  const formatTimestamp = (isoString: string) => {
+  const formatTimestamp = (utcIsoString: string) => {
     try {
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const date = parseISO(isoString);
-      return formatInTimeZone(date, timeZone, "MMM d, yyyy HH:mm:ss");
+      // Convert UTC ISO string to local time
+      const localDate = convertFromUtcToLocalTime(utcIsoString);
+      
+      // Format for display
+      return localDate.toLocaleString([], {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
     } catch (error) {
       console.error("Error formatting timestamp:", error);
       return "Unknown time";

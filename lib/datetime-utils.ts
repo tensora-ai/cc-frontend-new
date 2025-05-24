@@ -19,15 +19,14 @@ export const convertFromLocalTimeToUtc = (date: Date | string): Date => {
  * Converts a UTC date to local time
  */
 export const convertFromUtcToLocalTime = (date: Date | string): Date => {
-  // Ensure we have a proper Date object
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  console.log("Converting date from UTC to local time:", date);
   
   // Get the local timezone
   const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   
   // toZonedTime takes a UTC date and returns a Date that represents
   // the equivalent local time in the specified timezone
-  return toZonedTime(dateObj, localTimeZone);
+  return toZonedTime(date, localTimeZone);
 };
 
 /**

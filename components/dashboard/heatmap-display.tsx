@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { parseISO } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
 import { BarChart2, FileWarning, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
+import { convertFromUtcToLocalTime } from "@/lib/datetime-utils";
 
 interface HeatmapDisplayProps {
   projectId: string;
@@ -98,16 +97,20 @@ export function HeatmapDisplay({
   }, [forceLoading]);
   
   // Format timestamp for display in local time
-  const formatTimestamp = (isoString: string) => {
+  const formatTimestamp = (utcIsoString: string) => {
     try {
-      // Get the local timezone
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      // Convert UTC ISO string to local time
+      const localDate = convertFromUtcToLocalTime(utcIsoString);
       
-      // Parse the ISO string
-      const date = parseISO(isoString);
-      
-      // Format with local time zone
-      return formatInTimeZone(date, timeZone, "MMM d, yyyy HH:mm:ss");
+      // Format for display
+      return localDate.toLocaleString([], {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
     } catch (error) {
       console.error("Error formatting timestamp:", error);
       return "Unknown time";

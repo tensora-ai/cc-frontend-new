@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { format } from "date-fns";
-import { fromZonedTime } from "date-fns-tz";
+import { 
+  getLocalNow, 
+  convertFromUtcToLocalTime, 
+  formatUtcDateToIsoString 
+} from "@/lib/datetime-utils";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -33,10 +36,6 @@ export default function DashboardPage() {
   const params = useParams();
   const projectId = params.project_id as string;
   
-  // Get the local timezone
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  console.log("Local Time Zone:", timeZone);
-  
   // State for project data
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +45,7 @@ export default function DashboardPage() {
   const [selectedArea, setSelectedArea] = useState<string>("");
   
   // State for dashboard controls (with defaults)
-  const getDefaultDate = () => new Date();
+  const getDefaultDate = () => getLocalNow();
   const getDefaultLookback = () => 3;
   
   const [selectedDate, setSelectedDate] = useState<Date>(getDefaultDate);
@@ -107,11 +106,11 @@ export default function DashboardPage() {
     if (relevantTimestamps.length === 0) {
       return targetTimestamp;
     }
-
-    // Find the nearest timestamp
+    
+    // Get the target time in milliseconds (UTC)
     const targetTime = new Date(targetTimestamp).getTime();
     
-    // Sort by time difference
+    // Sort by time difference - all cameraTimestamps are already in UTC
     relevantTimestamps.sort((a, b) => {
       const timeA = new Date(a.timestamp).getTime();
       const timeB = new Date(b.timestamp).getTime();
@@ -132,8 +131,7 @@ export default function DashboardPage() {
       setClickedTimestamp(null);
       
       // Convert local time to UTC for API request
-      const utcDate = fromZonedTime(selectedDate, timeZone);
-      const endDate = format(utcDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
+      const endDate = formatUtcDateToIsoString(selectedDate);
       
       // Make API request
       const response = await fetch(`/api/projects/${projectId}/areas/${selectedArea}/predictions/aggregate`, {
@@ -162,6 +160,8 @@ export default function DashboardPage() {
       }
       
       const data: AggregateTimeSeriesResponse = await response.json();
+
+      console.log("Fetched time series data:", data);
       
       // Check if we got empty time series
       if (!data.time_series || data.time_series.length === 0) {
@@ -253,15 +253,16 @@ export default function DashboardPage() {
   
   // Get the timestamp to use for display
   const getDisplayTimestamp = useCallback((
-  cameraId: string,
-  positionId: string
-): string => {
-  // Determine the target timestamp (either clicked point or selected date)
-  const targetTimestamp = clickedTimestamp || format(fromZonedTime(selectedDate, timeZone), "yyyy-MM-dd'T'HH:mm:ss'Z'");
-  
-  // Always find the nearest available timestamp for this camera/position
-  return findNearestTimestamp(cameraId, positionId, targetTimestamp);
-}, [clickedTimestamp, selectedDate, timeZone, findNearestTimestamp]);
+    cameraId: string,
+    positionId: string
+  ): string => {
+    // Determine the target timestamp (either clicked point or selected date)
+    // If clickedTimestamp exists, it's already in UTC format from the API
+    const targetTimestamp = clickedTimestamp || formatUtcDateToIsoString(selectedDate);
+    
+    // Always find the nearest available timestamp for this camera/position
+    return findNearestTimestamp(cameraId, positionId, targetTimestamp);
+  }, [clickedTimestamp, selectedDate, findNearestTimestamp]);
   
   // Check if we have valid prediction data
   const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;

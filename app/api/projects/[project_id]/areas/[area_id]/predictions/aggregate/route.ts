@@ -11,6 +11,8 @@ export async function POST(
     const { project_id, area_id } = await params;
 
     const body: AggregateTimeSeriesRequest = await request.json();
+
+    console.log("Aggregating predictions for project:", project_id, "area:", area_id, "with body:", body);
     
     // Call the backend API using path parameters instead of request body parameters
     const response = await fetch(
