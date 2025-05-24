@@ -5,7 +5,7 @@ import { ImageOff, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
-import { convertFromUtcToLocalTime } from "@/lib/datetime-utils";
+import { formatUtcToLocalDisplay } from "@/lib/datetime-utils";
 
 interface ImageDisplayProps {
   projectId: string;
@@ -94,60 +94,17 @@ export function ImageDisplay({
     }
   }, [forceLoading]);
   
-  // Format timestamp for display in local time - PROPERLY FIXED
+  // Format timestamp for display in local time using datetime utils
   const formatTimestamp = (utcIsoString: string) => {
-    try {
-      // Convert UTC ISO string to local time Date object
-      const localDate = convertFromUtcToLocalTime(utcIsoString);
-      console.log("UTC input:", utcIsoString);
-      console.log("Local date object:", localDate);
-      
-      // Format the local Date object for human-readable display
-      // This will show the actual local time without any timezone indicators
-      const formatted = localDate.toLocaleString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false // Use 24-hour format
-      });
-      
-      console.log("Formatted local time:", formatted);
-      return formatted;
-      
-    } catch (error) {
-      console.error("Error formatting timestamp:", error);
-      return "Unknown time";
-    }
-  };
-  
-  // Alternative version that shows timezone info
-  const formatTimestampWithTimezone = (utcIsoString: string) => {
-    try {
-      const localDate = convertFromUtcToLocalTime(utcIsoString);
-      
-      // Get timezone name
-      const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
-      const formatted = localDate.toLocaleString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-        timeZoneName: 'short' // This will add timezone abbreviation like "PST", "EST", etc.
-      });
-      
-      return formatted;
-      
-    } catch (error) {
-      console.error("Error formatting timestamp:", error);
-      return "Unknown time";
-    }
+    return formatUtcToLocalDisplay(utcIsoString, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false // Use 24-hour format
+    });
   };
   
   const handleOpenDialog = () => {

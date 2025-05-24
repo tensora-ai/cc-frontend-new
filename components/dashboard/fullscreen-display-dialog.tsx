@@ -12,7 +12,7 @@ interface FullscreenDisplayDialogProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  timestamp: string;
+  timestamp: string; // This should already be formatted by the parent component
   displayType: DisplayType;
   imageUrl?: string;
   densityData?: number[][];
@@ -23,7 +23,7 @@ export function FullscreenDisplayDialog({
   isOpen,
   onClose,
   title,
-  timestamp,
+  timestamp, // Already formatted timestamp from parent component
   displayType,
   imageUrl,
   densityData,

@@ -5,7 +5,7 @@ import { BarChart2, FileWarning, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
-import { convertFromUtcToLocalTime } from "@/lib/datetime-utils";
+import { formatUtcToLocalDisplay } from "@/lib/datetime-utils";
 
 interface HeatmapDisplayProps {
   projectId: string;
@@ -96,25 +96,17 @@ export function HeatmapDisplay({
     }
   }, [forceLoading]);
   
-  // Format timestamp for display in local time
+  // Format timestamp for display in local time using datetime utils
   const formatTimestamp = (utcIsoString: string) => {
-    try {
-      // Convert UTC ISO string to local time
-      const localDate = convertFromUtcToLocalTime(utcIsoString);
-      
-      // Format for display
-      return localDate.toLocaleString([], {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-    } catch (error) {
-      console.error("Error formatting timestamp:", error);
-      return "Unknown time";
-    }
+    return formatUtcToLocalDisplay(utcIsoString, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false // Use 24-hour format
+    });
   };
   
   const handleOpenDialog = () => {
