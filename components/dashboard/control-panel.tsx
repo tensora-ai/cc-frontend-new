@@ -20,7 +20,7 @@ interface ControlPanelProps {
   lookbackHours: number;
   onLookbackChange: (hours: number) => void;
   onReset: () => void;
-  onApply?: () => void;  // New apply function
+  onApply?: () => void;
   loading?: boolean;     // Loading state
   showApplyButton?: boolean; // Whether to show apply button
 }
@@ -42,12 +42,12 @@ export function ControlPanel({
   
   // State for time values - initialize with local date
   const [hour, setHour] = useState(date.getHours());
-  const [minute, setMinute] = useState(Math.floor(date.getMinutes() / 5) * 5); // Round to nearest 5 minutes
+  const [minute, setMinute] = useState(date.getMinutes());
   
   // Sync time pickers when date changes (e.g., from reset)
   useEffect(() => {
     setHour(date.getHours());
-    setMinute(Math.floor(date.getMinutes() / 5) * 5);
+    setMinute(date.getMinutes());
   }, [date]);
   
   const handleTimeChange = (newHour: number, newMinute: number) => {
@@ -76,8 +76,8 @@ export function ControlPanel({
   // Generate hour options
   const hourOptions = Array.from({ length: 24 }, (_, i) => i);
   
-  // Generate minute options (0, 5, 10, ..., 55)
-  const minuteOptions = Array.from({ length: 12 }, (_, i) => i * 5);
+  // Generate minute options
+  const minuteOptions = Array.from({ length: 60 }, (_, i) => i);
   
   return (
     <div className="bg-white rounded-lg border p-4 shadow-sm space-y-4">
