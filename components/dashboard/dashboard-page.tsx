@@ -89,9 +89,6 @@ export default function DashboardPage() {
       return null;
     }
     
-    console.log(`📋 Found ${relevantTimestamps.length} relevant timestamps:`, 
-      relevantTimestamps.map(t => t.timestamp));
-    
     // Helper function to ensure proper UTC parsing
     const parseUtcTimestamp = (timestamp: string): number => {
       // Ensure the timestamp ends with 'Z' for proper UTC parsing
@@ -109,14 +106,11 @@ export default function DashboardPage() {
     
     // Get the target time in milliseconds (UTC)
     const targetTime = parseUtcTimestamp(targetTimestamp);
-    console.log(`🎯 Target time parsed to: ${new Date(targetTime).toISOString()}`);
-    
+
     // Calculate differences and sort by closest match
     const timestampsWithDifference = relevantTimestamps.map(ct => {
       const timestampTime = parseUtcTimestamp(ct.timestamp);
       const difference = Math.abs(timestampTime - targetTime);
-      
-      console.log(`⏱️  Timestamp ${ct.timestamp} -> ${new Date(timestampTime).toISOString()} (diff: ${difference}ms)`);
       
       return {
         ...ct,
