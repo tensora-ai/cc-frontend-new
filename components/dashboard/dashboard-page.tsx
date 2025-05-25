@@ -101,9 +101,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!project || !selectedArea) return;
     
-    // We need either valid data or a clicked timestamp to proceed
-    if (!hasValidData && !clickedTimestamp) return;
+    // Only proceed if we have camera timestamps data
+    if (cameraTimestamps.length === 0) return;
 
+    console.log("🔄 Recalculating timestamps for clickedTimestamp:", clickedTimestamp);
+    
     const targetTimestamp = clickedTimestamp || formatUtcDateToIsoString(selectedDate);
     const selectedAreaData = project.areas.find(area => area.id === selectedArea);
     
@@ -117,9 +119,16 @@ export default function DashboardPage() {
       newTimestamps[key] = timestamp;
     });
 
-    setCameraConfigTimestamps(newTimestamps);
-    console.log("🔄 Updated camera config timestamps:", newTimestamps);
-  }, [clickedTimestamp, selectedDate, project, selectedArea, hasValidData, findNearestTimestamp]);
+    // Force a complete state update by first clearing, then setting
+    setCameraConfigTimestamps({});
+    
+    // Then set the new timestamps after a short delay
+    setTimeout(() => {
+      setCameraConfigTimestamps(newTimestamps);
+      console.log("🔄 Updated camera config timestamps:", newTimestamps);
+    }, 10);
+    
+  }, [clickedTimestamp, project, selectedArea, cameraTimestamps, selectedDate, findNearestTimestamp]);
   
   // Handle date changes from control panel
   const handleDateChange = (newDate: Date) => {
@@ -135,10 +144,16 @@ export default function DashboardPage() {
     setClickedTimestamp(null);
   };
   
-  // GRAPH CLICK LOGIC
   const handleGraphPointClick = (timestamp: string) => {
     console.log("🔍 Graph clicked with timestamp:", timestamp);
-    setClickedTimestamp(timestamp);
+    
+    // Force a complete state reset to ensure components re-render
+    setClickedTimestamp(null);
+    
+    // Then set the new timestamp after a short delay
+    setTimeout(() => {
+      setClickedTimestamp(timestamp);
+    }, 10);
   };
 
   // Auto-select latest data point when data loads
@@ -386,6 +401,7 @@ export default function DashboardPage() {
               <div className="bg-white rounded-lg border p-4">
                 <h4 className="text-md font-medium mb-3">Camera View</h4>
                 <ImageDisplay 
+                  key={`image-${config.id}-${cameraTimestamp}`}
                   projectId={projectId}
                   cameraId={config.camera_id}
                   positionId={config.position.name}
@@ -397,6 +413,7 @@ export default function DashboardPage() {
               <div className="bg-white rounded-lg border p-4">
                 <h4 className="text-md font-medium mb-3">Heatmap</h4>
                 <HeatmapDisplay
+                  key={`heatmap-${config.id}-${cameraTimestamp}`}
                   projectId={projectId}
                   cameraId={config.camera_id}
                   positionId={config.position.name}
@@ -408,6 +425,7 @@ export default function DashboardPage() {
               <div className="bg-white rounded-lg border p-4">
                 <h4 className="text-md font-medium mb-3">m²-Density</h4>
                 <DensityDisplay
+                  key={`density-${config.id}-${cameraTimestamp}`}
                   projectId={projectId}
                   cameraId={config.camera_id}
                   positionId={config.position.name}
