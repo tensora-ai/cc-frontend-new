@@ -1,4 +1,3 @@
-import { parseISO } from 'date-fns';
 import { fromZonedTime, toZonedTime, formatInTimeZone } from 'date-fns-tz';
 
 /**
@@ -150,12 +149,9 @@ export const getLocalNow = (): Date => {
  * @returns Formatted string suitable for blob paths (e.g. "2023_04_01-14_30_45")
  */
 export function formatTimestampForBlobPath(timestamp: string): string {
-  // Parse the ISO string to a date object
-  const date = parseISO(timestamp);
-  
   // Use date-fns-tz to format the date in UTC timezone with our specific format
   return formatInTimeZone(
-    date,
+    timestamp,
     'UTC', // Always use UTC for blob paths
     "yyyy_MM_dd-HH_mm_ss" // Format with underscores and hyphens as needed
   );
