@@ -27,6 +27,7 @@ import {
   TimeSeriesPoint, 
   CameraTimestamp 
 } from "@/models/dashboard";
+import { fromZonedTime } from "date-fns-tz";
 
 // Dashboard states
 type DashboardState = 'initial' | 'loading' | 'success' | 'error' | 'empty';
@@ -69,8 +70,12 @@ export default function DashboardPage() {
     positionId: string, 
     targetTimestamp: string
   ): string | null => {
+
+    console.log(`🔍 Finding nearest timestamp for camera ${cameraId} at position ${positionId} for target time: ${targetTimestamp}`);
+
     // If there are no timestamps, return null
     if (cameraTimestamps.length === 0) {
+      console.warn("No camera timestamps available to search.");
       return null;
     }
 
@@ -81,20 +86,55 @@ export default function DashboardPage() {
 
     // If no relevant timestamps, return null
     if (relevantTimestamps.length === 0) {
+      console.warn(`No timestamps found for camera ${cameraId} at position ${positionId}.`);
       return null;
     }
     
-    // Get the target time in milliseconds (UTC)
-    const targetTime = new Date(targetTimestamp).getTime();
+    console.log(`📋 Found ${relevantTimestamps.length} relevant timestamps:`, 
+      relevantTimestamps.map(t => t.timestamp));
     
-    // Sort by time difference and return the closest one
-    relevantTimestamps.sort((a, b) => {
-      const timeA = new Date(a.timestamp).getTime();
-      const timeB = new Date(b.timestamp).getTime();
-      return Math.abs(timeA - targetTime) - Math.abs(timeB - targetTime);
+    // Helper function to ensure proper UTC parsing
+    const parseUtcTimestamp = (timestamp: string): number => {
+      // Ensure the timestamp ends with 'Z' for proper UTC parsing
+      const utcTimestamp = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z';
+      const date = new Date(utcTimestamp);
+      
+      // Validate the date
+      if (isNaN(date.getTime())) {
+        console.error(`Invalid timestamp: ${timestamp}`);
+        return 0;
+      }
+      
+      return date.getTime();
+    };
+    
+    // Get the target time in milliseconds (UTC)
+    const targetTime = parseUtcTimestamp(targetTimestamp);
+    console.log(`🎯 Target time parsed to: ${new Date(targetTime).toISOString()}`);
+    
+    // Calculate differences and sort by closest match
+    const timestampsWithDifference = relevantTimestamps.map(ct => {
+      const timestampTime = parseUtcTimestamp(ct.timestamp);
+      const difference = Math.abs(timestampTime - targetTime);
+      
+      console.log(`⏱️  Timestamp ${ct.timestamp} -> ${new Date(timestampTime).toISOString()} (diff: ${difference}ms)`);
+      
+      return {
+        ...ct,
+        timestampTime,
+        difference
+      };
     });
+    
+    // Sort by smallest difference
+    timestampsWithDifference.sort((a, b) => a.difference - b.difference);
+    
+    const closest = timestampsWithDifference[0];
+    const result = closest.timestamp;
 
-    return relevantTimestamps[0].timestamp;
+    console.log(`✅ Nearest timestamp found: ${result} (diff: ${closest.difference}ms) for camera ${cameraId} at position ${positionId}`);
+
+    return result;
   }, [cameraTimestamps]);
 
   // Calculate timestamps for all camera configs when relevant state changes
@@ -119,14 +159,9 @@ export default function DashboardPage() {
       newTimestamps[key] = timestamp;
     });
 
-    // Force a complete state update by first clearing, then setting
-    setCameraConfigTimestamps({});
-    
-    // Then set the new timestamps after a short delay
-    setTimeout(() => {
-      setCameraConfigTimestamps(newTimestamps);
-      console.log("🔄 Updated camera config timestamps:", newTimestamps);
-    }, 10);
+    // Update timestamps directly
+    setCameraConfigTimestamps(newTimestamps);
+    console.log("🔄 Updated camera config timestamps:", newTimestamps);
     
   }, [clickedTimestamp, project, selectedArea, cameraTimestamps, selectedDate, findNearestTimestamp]);
   
@@ -147,13 +182,11 @@ export default function DashboardPage() {
   const handleGraphPointClick = (timestamp: string) => {
     console.log("🔍 Graph clicked with timestamp:", timestamp);
     
-    // Force a complete state reset to ensure components re-render
-    setClickedTimestamp(null);
+    // Clear camera config timestamps first to force re-render
+    setCameraConfigTimestamps({});
     
-    // Then set the new timestamp after a short delay
-    setTimeout(() => {
-      setClickedTimestamp(timestamp);
-    }, 10);
+    // Set the clicked timestamp directly
+    setClickedTimestamp(timestamp);
   };
 
   // Auto-select latest data point when data loads
@@ -204,6 +237,7 @@ export default function DashboardPage() {
       const data: AggregateTimeSeriesResponse = await response.json();
 
       console.log("Fetched time series data:", data);
+      console.log("Available Camera timestamps:", data.camera_timestamps);
       
       // Check if we got empty time series
       if (!data.time_series || data.time_series.length === 0) {
