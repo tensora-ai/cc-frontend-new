@@ -58,7 +58,7 @@ export default function DashboardPage() {
   
   // State for clicked timestamp and pre-calculated camera timestamps
   const [clickedTimestamp, setClickedTimestamp] = useState<string | null>(null);
-  const [cameraConfigTimestamps, setCameraConfigTimestamps] = useState<Record<string, string>>({});
+  const [cameraConfigTimestamps, setCameraConfigTimestamps] = useState<Record<string, string | null>>({});
 
   // Check if we have valid prediction data
   const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;
@@ -68,10 +68,10 @@ export default function DashboardPage() {
     cameraId: string, 
     positionId: string, 
     targetTimestamp: string
-  ): string => {
-    // If there are no timestamps, return the target timestamp
+  ): string | null => {
+    // If there are no timestamps, return null instead of target timestamp
     if (cameraTimestamps.length === 0) {
-      return targetTimestamp;
+      return null;
     }
 
     // Filter timestamps for this camera/position
@@ -79,9 +79,9 @@ export default function DashboardPage() {
       ct => ct.camera_id === cameraId && ct.position === positionId
     );
 
-    // If no relevant timestamps, return the target timestamp
+    // If no relevant timestamps, return null instead of target timestamp
     if (relevantTimestamps.length === 0) {
-      return targetTimestamp;
+      return null;
     }
     
     // Get the target time in milliseconds (UTC)
@@ -96,7 +96,7 @@ export default function DashboardPage() {
 
     return relevantTimestamps[0].timestamp;
   };
-
+  
   // PRE-CALCULATION LOGIC: Calculate timestamps for all camera configs when clicked timestamp changes
   // This ensures display components get new props and re-render automatically
   useEffect(() => {
@@ -107,12 +107,12 @@ export default function DashboardPage() {
     
     if (!selectedAreaData) return;
 
-    const newTimestamps: Record<string, string> = {};
+    const newTimestamps: Record<string, string | null> = {};
     
     selectedAreaData.camera_configs.forEach((config) => {
       const key = `${config.camera_id}-${config.position.name}`;
       const timestamp = findNearestTimestamp(config.camera_id, config.position.name, targetTimestamp);
-      newTimestamps[key] = timestamp;
+      newTimestamps[key] = timestamp; // Can be null now
     });
 
     setCameraConfigTimestamps(newTimestamps);
@@ -356,52 +356,58 @@ export default function DashboardPage() {
     }
     
     return cameraConfigs.map((config) => {
-      // Get pre-calculated timestamp from state - this will change when clickedTimestamp updates
+      // Get pre-calculated timestamp from state
       const configKey = `${config.camera_id}-${config.position.name}`;
-      const cameraTimestamp = cameraConfigTimestamps[configKey] || formatUtcDateToIsoString(selectedDate);
-      
-      console.log(`📷 Rendering config ${configKey} with timestamp:`, cameraTimestamp);
-      
+      const cameraTimestamp = cameraConfigTimestamps[configKey] || null;
+
+      // Only render display components if we have a valid timestamp
       return (
         <div key={config.id} className="bg-white rounded-lg border shadow-sm p-4 mb-6">
           <h3 className="text-lg font-medium mb-4">
             {(project.cameras.find(c => c.id === config.camera_id)?.name ?? "Unknown Camera")} ({config.position.name})
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Camera Image Panel */}
-            <div className="bg-white rounded-lg border p-4">
-              <h4 className="text-md font-medium mb-3">Camera View</h4>
-              <ImageDisplay 
-                projectId={projectId}
-                cameraId={config.camera_id}
-                positionId={config.position.name}
-                timestamp={cameraTimestamp}
-              />
+          {cameraTimestamp ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Camera Image Panel */}
+              <div className="bg-white rounded-lg border p-4">
+                <h4 className="text-md font-medium mb-3">Camera View</h4>
+                <ImageDisplay 
+                  projectId={projectId}
+                  cameraId={config.camera_id}
+                  positionId={config.position.name}
+                  timestamp={cameraTimestamp}
+                />
+              </div>
+              
+              {/* Heatmap Panel */}
+              <div className="bg-white rounded-lg border p-4">
+                <h4 className="text-md font-medium mb-3">Heatmap</h4>
+                <HeatmapDisplay
+                  projectId={projectId}
+                  cameraId={config.camera_id}
+                  positionId={config.position.name}
+                  timestamp={cameraTimestamp}
+                />
+              </div>
+              
+              {/* Density Panel */}
+              <div className="bg-white rounded-lg border p-4">
+                <h4 className="text-md font-medium mb-3">m²-Density</h4>
+                <DensityDisplay
+                  projectId={projectId}
+                  cameraId={config.camera_id}
+                  positionId={config.position.name}
+                  timestamp={cameraTimestamp}
+                />
+              </div>
             </div>
-            
-            {/* Heatmap Panel */}
-            <div className="bg-white rounded-lg border p-4">
-              <h4 className="text-md font-medium mb-3">Heatmap</h4>
-              <HeatmapDisplay
-                projectId={projectId}
-                cameraId={config.camera_id}
-                positionId={config.position.name}
-                timestamp={cameraTimestamp}
-              />
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 text-amber-700 p-4 rounded">
+              <p>No data available for this camera configuration at the selected time.</p>
+              <p className="text-sm mt-1">Try adjusting the time range or selecting a different date.</p>
             </div>
-            
-            {/* Density Panel */}
-            <div className="bg-white rounded-lg border p-4">
-              <h4 className="text-md font-medium mb-3">m²-Density</h4>
-              <DensityDisplay
-                projectId={projectId}
-                cameraId={config.camera_id}
-                positionId={config.position.name}
-                timestamp={cameraTimestamp}
-              />
-            </div>
-          </div>
+          )}
         </div>
       );
     });
