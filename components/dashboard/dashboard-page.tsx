@@ -8,11 +8,11 @@ import {
 } from "@/lib/datetime-utils";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Import our custom dashboard components
+// Import dashboard components
 import { ControlPanel } from "@/components/dashboard/control-panel";
 import { StatsPanel } from "@/components/dashboard/stats-panel";
 import { CrowdGraph } from "@/components/dashboard/crowd-graph";
@@ -30,9 +30,6 @@ import {
 
 // Dashboard states
 type DashboardState = 'initial' | 'loading' | 'success' | 'error' | 'empty';
-
-// Type for storing camera timestamps by camera+position
-type CameraTimestampMap = Record<string, string>; // key: "cameraId-positionId", value: timestamp
 
 export default function DashboardPage() {
   const params = useParams();
@@ -59,54 +56,19 @@ export default function DashboardPage() {
   const [cameraTimestamps, setCameraTimestamps] = useState<CameraTimestamp[]>([]);
   const [dataError, setDataError] = useState<string | null>(null);
   
-  // State for clicked point on graph
+  // State for clicked timestamp and pre-calculated camera timestamps
   const [clickedTimestamp, setClickedTimestamp] = useState<string | null>(null);
-  
-  // State for display component loading
-  const [displayComponentsLoading, setDisplayComponentsLoading] = useState<boolean>(false);
+  const [cameraConfigTimestamps, setCameraConfigTimestamps] = useState<Record<string, string>>({});
 
-  // State to trigger refresh of components
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Check if we have valid prediction data
+  const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;
 
-  // State to store calculated timestamps for each camera configuration
-  const [cameraConfigTimestamps, setCameraConfigTimestamps] = useState<CameraTimestampMap>({});
-  
-  // Handle date changes from control panel
-  const handleDateChange = (newDate: Date) => {
-    setSelectedDate(newDate);
-    // Reset clicked point when manually changing date
-    setClickedTimestamp(null);
-  };
-  
-  // Handle resetting to defaults
-  const handleResetToDefaults = () => {
-    setSelectedDate(getDefaultDate());
-    setLookbackHours(getDefaultLookback());
-    setClickedTimestamp(null);
-  };
-  
-  // Function to set the clicked timestamp to the latest data point
-  const selectLatestDataPoint = useCallback(() => {
-    if (timeSeriesData.length > 0) {
-      // Find the latest timestamp in the data
-      const latestPoint = timeSeriesData[timeSeriesData.length - 1];
-      setClickedTimestamp(latestPoint.timestamp);
-    }
-  }, [timeSeriesData]);
-
-  // Find the nearest available timestamp for a camera configuration
-  const findNearestTimestamp = useCallback((
+  // Utility function to find nearest timestamp
+  const findNearestTimestamp = (
     cameraId: string, 
     positionId: string, 
     targetTimestamp: string
   ): string => {
-    console.log("🔍 findNearestTimestamp called with:", {
-      cameraId, 
-      positionId, 
-      targetTimestamp,
-      availableTimestamps: cameraTimestamps.length
-    });
-
     // If there are no timestamps, return the target timestamp
     if (cameraTimestamps.length === 0) {
       return targetTimestamp;
@@ -125,56 +87,66 @@ export default function DashboardPage() {
     // Get the target time in milliseconds (UTC)
     const targetTime = new Date(targetTimestamp).getTime();
     
-    // Sort by time difference - all cameraTimestamps are already in UTC
+    // Sort by time difference and return the closest one
     relevantTimestamps.sort((a, b) => {
       const timeA = new Date(a.timestamp).getTime();
       const timeB = new Date(b.timestamp).getTime();
       return Math.abs(timeA - targetTime) - Math.abs(timeB - targetTime);
     });
 
-    const result = relevantTimestamps[0].timestamp;
-    console.log("🔍 findNearestTimestamp returning:", result);
-    return result;
-  }, [cameraTimestamps]);
+    return relevantTimestamps[0].timestamp;
+  };
 
-  // Check if we have valid prediction data
-  const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;
+  // PRE-CALCULATION LOGIC: Calculate timestamps for all camera configs when clicked timestamp changes
+  // This ensures display components get new props and re-render automatically
+  useEffect(() => {
+    if (!project || !hasValidData || !selectedArea) return;
 
-  // Function to calculate and update all camera configuration timestamps
-  const updateCameraConfigTimestamps = useCallback(() => {
-    if (!project || !hasValidData) return;
-
-    console.log("🔄 Updating camera config timestamps...");
-    console.log("🔄 clickedTimestamp:", clickedTimestamp);
-    console.log("🔄 selectedDate:", selectedDate);
-
-    // Determine the target timestamp (either clicked or selected date)
     const targetTimestamp = clickedTimestamp || formatUtcDateToIsoString(selectedDate);
-    console.log("🔄 targetTimestamp:", targetTimestamp);
-
-    const newTimestamps: CameraTimestampMap = {};
-
-    // Calculate timestamp for each camera configuration in the selected area
     const selectedAreaData = project.areas.find(area => area.id === selectedArea);
-    if (selectedAreaData) {
-      selectedAreaData.camera_configs.forEach((config) => {
-        const key = `${config.camera_id}-${config.position.name}`;
-        const timestamp = findNearestTimestamp(config.camera_id, config.position.name, targetTimestamp);
-        newTimestamps[key] = timestamp;
-        
-        console.log(`🔄 Camera config ${key}: ${timestamp}`);
-      });
-    }
+    
+    if (!selectedAreaData) return;
 
-    // Update the state
+    const newTimestamps: Record<string, string> = {};
+    
+    selectedAreaData.camera_configs.forEach((config) => {
+      const key = `${config.camera_id}-${config.position.name}`;
+      const timestamp = findNearestTimestamp(config.camera_id, config.position.name, targetTimestamp);
+      newTimestamps[key] = timestamp;
+    });
+
     setCameraConfigTimestamps(newTimestamps);
     console.log("🔄 Updated camera config timestamps:", newTimestamps);
-  }, [project, selectedArea, clickedTimestamp, selectedDate, findNearestTimestamp, hasValidData]);
+  }, [clickedTimestamp, selectedDate, project, selectedArea, hasValidData, cameraTimestamps, findNearestTimestamp]);
+  
+  // Handle date changes from control panel
+  const handleDateChange = (newDate: Date) => {
+    setSelectedDate(newDate);
+    // Reset clicked point when manually changing date
+    setClickedTimestamp(null);
+  };
+  
+  // Handle resetting to defaults
+  const handleResetToDefaults = () => {
+    setSelectedDate(getDefaultDate());
+    setLookbackHours(getDefaultLookback());
+    setClickedTimestamp(null);
+  };
+  
+  // GRAPH CLICK LOGIC: Much cleaner graph point click handler
+  const handleGraphPointClick = (timestamp: string) => {
+    console.log("🔍 Graph clicked with timestamp:", timestamp);
+    setClickedTimestamp(timestamp);
+    // Note: useEffect below will automatically recalculate camera timestamps
+  };
 
-  // Update camera timestamps whenever relevant state changes
-  useEffect(() => {
-    updateCameraConfigTimestamps();
-  }, [updateCameraConfigTimestamps]);
+  // Auto-select latest data point when data loads
+  const selectLatestDataPoint = useCallback(() => {
+    if (timeSeriesData.length > 0) {
+      const latestPoint = timeSeriesData[timeSeriesData.length - 1];
+      setClickedTimestamp(latestPoint.timestamp);
+    }
+  }, [timeSeriesData]);
 
   // Handle apply button - fetch data
   const handleApplySettings = async () => {
@@ -203,11 +175,9 @@ export default function DashboardPage() {
       
       if (!response.ok) {
         if (response.status === 422) {
-          // Partial data - some cameras have data, others don't
           setDataError("Not enough prediction data available. Some cameras in this area do not have data while others do.");
           setDashboardState('error');
         } else {
-          // Generic error
           setDataError("Failed to fetch prediction data. Please try again.");
           setDashboardState('error');
         }
@@ -242,35 +212,6 @@ export default function DashboardPage() {
       setDashboardState('error');
     }
   };
-  
-  // Handle graph point click
-  const handleGraphPointClick = (timestamp: string) => {
-    console.log("🔍 Graph clicked with timestamp:", timestamp);
-    console.log("🔍 Previous clickedTimestamp:", clickedTimestamp);
-
-    // Set the clicked timestamp to the selected point
-    setClickedTimestamp(timestamp);
-    setRefreshTrigger(prev => prev + 1); // Trigger a re-render to update components
-
-    console.log("🔍 After setClickedTimestamp - should update on next render");
-
-    // Trigger loading for display components
-    setDisplayComponentsLoading(true);
-    
-    // Reset loading after a brief delay (components will handle their own loading)
-    setTimeout(() => {
-      setDisplayComponentsLoading(false);
-    }, 100);
-  };
-
-  useEffect(() => {
-    console.log("📍 clickedTimestamp state changed to:", clickedTimestamp);
-  }, [clickedTimestamp]);
-
-  // Log when camera config timestamps change
-  useEffect(() => {
-    console.log("📍 cameraConfigTimestamps state changed to:", cameraConfigTimestamps);
-  }, [cameraConfigTimestamps]);
   
   // Load project data
   useEffect(() => {
@@ -400,7 +341,7 @@ export default function DashboardPage() {
     );
   }
   
-  // Function to render camera configuration panels
+  // RENDERING LOGIC: Use pre-calculated timestamps to ensure proper re-rendering
   const renderCameraConfigPanels = (cameraConfigs: CameraConfig[]) => {
     // Only show if we have valid data
     if (!hasValidData) return null;
@@ -415,7 +356,7 @@ export default function DashboardPage() {
     }
     
     return cameraConfigs.map((config) => {
-      // Get timestamp from state instead of calculating during render
+      // Get pre-calculated timestamp from state - this will change when clickedTimestamp updates
       const configKey = `${config.camera_id}-${config.position.name}`;
       const cameraTimestamp = cameraConfigTimestamps[configKey] || formatUtcDateToIsoString(selectedDate);
       
@@ -436,8 +377,6 @@ export default function DashboardPage() {
                 cameraId={config.camera_id}
                 positionId={config.position.name}
                 timestamp={cameraTimestamp}
-                refreshTrigger={refreshTrigger}
-                forceLoading={displayComponentsLoading}
               />
             </div>
             
@@ -449,8 +388,6 @@ export default function DashboardPage() {
                 cameraId={config.camera_id}
                 positionId={config.position.name}
                 timestamp={cameraTimestamp}
-                refreshTrigger={refreshTrigger}
-                forceLoading={displayComponentsLoading}
               />
             </div>
             
@@ -462,8 +399,6 @@ export default function DashboardPage() {
                 cameraId={config.camera_id}
                 positionId={config.position.name}
                 timestamp={cameraTimestamp}
-                refreshTrigger={refreshTrigger}
-                forceLoading={displayComponentsLoading}
               />
             </div>
           </div>
@@ -541,7 +476,7 @@ export default function DashboardPage() {
           {renderAreaContent(project.areas[0])}
         </div>
       ) : (
-        // Multiple areas - use tabs
+        // Multiple areas - use tabs but only render selected area content
         <Tabs
           value={selectedArea}
           onValueChange={(value) => {
@@ -552,7 +487,7 @@ export default function DashboardPage() {
             setCameraTimestamps([]);
             setDataError(null);
             setClickedTimestamp(null);
-            setCameraConfigTimestamps({});
+            setCameraConfigTimestamps({}); // Reset pre-calculated timestamps
           }}
           className="w-full"
         >
@@ -568,12 +503,15 @@ export default function DashboardPage() {
             ))}
           </TabsList>
           
-          {/* Tab Content for each area */}
-          {project.areas.map((area) => (
-            <TabsContent key={area.id} value={area.id}>
-              {renderAreaContent(area)}
-            </TabsContent>
-          ))}
+          {/* Only render the selected area's content */}
+          {(() => {
+            const selectedAreaData = project.areas.find(area => area.id === selectedArea);
+            return selectedAreaData ? (
+              <div className="mt-4">
+                {renderAreaContent(selectedAreaData)}
+              </div>
+            ) : null;
+          })()}
         </Tabs>
       )}
     </div>

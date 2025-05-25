@@ -6,7 +6,7 @@ import Plot from 'react-plotly.js';
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 import { DensityResponse } from "@/models/dashboard";
-import { formatUtcToLocalDisplay } from "@/lib/datetime-utils";
+import { formatTimestampForBlobPath } from "@/lib/datetime-utils";
 
 interface DensityDisplayProps {
   projectId: string;
@@ -14,7 +14,6 @@ interface DensityDisplayProps {
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
   heatmapConfig?: [number, number, number, number]; // [left, top, right, bottom]
-  refreshTrigger: number;
   forceLoading?: boolean;
 }
 
@@ -24,7 +23,6 @@ export function DensityDisplay({
   positionId,
   timestamp,
   heatmapConfig,
-  refreshTrigger,
   forceLoading = false
 }: DensityDisplayProps) {
   console.log("📊 DensityDisplay render - received timestamp:", timestamp);
@@ -46,7 +44,7 @@ export function DensityDisplay({
 
         // Construct the blob path directly
         // Format: {project_id}-{camera_id}-{position}-{timestamp}_density.json
-        const formattedTimestamp = timestamp.replace(/[-:]/g, '_').replace('T', '-').replace('Z', '');
+        const formattedTimestamp = formatTimestampForBlobPath(timestamp);
         const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_density.json`;
         
         // Use the direct blob access endpoint
@@ -89,7 +87,7 @@ export function DensityDisplay({
 
     console.log("🔄 useEffect triggered with timestamp:", timestamp);
     fetchDensityData();
-  }, [projectId, cameraId, positionId, timestamp, refreshTrigger]);
+  }, [projectId, cameraId, positionId, timestamp]);
 
   useEffect(() => {
     if (forceLoading) {
@@ -99,19 +97,6 @@ export function DensityDisplay({
     }
   }, [forceLoading]);
 
-  // Format timestamp for display in local time using datetime utils
-  const formatTimestamp = (utcIsoString: string) => {
-    return formatUtcToLocalDisplay(utcIsoString, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false // Use 24-hour format
-    });
-  };
-  
   const handleOpenDialog = () => {
     if (densityResponse && densityResponse.data) {
       setIsDialogOpen(true);
@@ -246,7 +231,7 @@ export function DensityDisplay({
       </div>
 
       <div className="mt-2 text-xs text-gray-500 space-y-1">
-        <div>Captured: {formatTimestamp(timestamp)}</div>
+        <div>Captured: {timestamp}</div>
         <div>Grid: {dataWidth} × {dataHeight} cells ({physicalWidth}m × {physicalHeight}m)</div>
         {heatmapConfig && (
           <div>Crop area: [{heatmapConfig.join(', ')}] meters</div>
@@ -258,7 +243,7 @@ export function DensityDisplay({
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         title={`Density: ${cameraId} (${positionId})`}
-        timestamp={formatTimestamp(timestamp)}
+        timestamp={timestamp}
         displayType="density"
         densityData={densityResponse.data}
         heatmapConfig={heatmapConfig}

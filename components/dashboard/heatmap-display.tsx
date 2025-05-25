@@ -5,14 +5,13 @@ import { BarChart2, FileWarning, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
-import { formatUtcToLocalDisplay } from "@/lib/datetime-utils";
+import { formatTimestampForBlobPath } from "@/lib/datetime-utils";
 
 interface HeatmapDisplayProps {
   projectId: string;
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
-  refreshTrigger: number;
   forceLoading?: boolean; // New prop to force loading state
 }
 
@@ -21,7 +20,6 @@ export function HeatmapDisplay({
   cameraId,
   positionId,
   timestamp,
-  refreshTrigger,
   forceLoading = false
 }: HeatmapDisplayProps) {
   console.log("🔥 HeatmapDisplay render - received timestamp:", timestamp);  
@@ -45,7 +43,7 @@ export function HeatmapDisplay({
         
         // Construct the blob path directly
         // Format: {project_id}-{camera_id}-{position}-{timestamp}_heatmap.png
-        const formattedTimestamp = timestamp.replace(/[-:]/g, '_').replace('T', '-').replace('Z', '');
+        const formattedTimestamp = formatTimestampForBlobPath(timestamp);
         const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_heatmap.jpg`;
         
         // Use the direct blob access endpoint
@@ -86,7 +84,7 @@ export function HeatmapDisplay({
     
     console.log("🔄 useEffect triggered with timestamp:", timestamp);
     fetchHeatmap();
-  }, [projectId, cameraId, positionId, timestamp, refreshTrigger]);
+  }, [projectId, cameraId, positionId, timestamp]);
   
   // Handle force loading
   useEffect(() => {
@@ -100,19 +98,6 @@ export function HeatmapDisplay({
       return () => clearTimeout(timeoutId);
     }
   }, [forceLoading]);
-  
-  // Format timestamp for display in local time using datetime utils
-  const formatTimestamp = (utcIsoString: string) => {
-    return formatUtcToLocalDisplay(utcIsoString, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false // Use 24-hour format
-    });
-  };
   
   const handleOpenDialog = () => {
     if (heatmapUrl) {
@@ -179,7 +164,7 @@ export function HeatmapDisplay({
       
       {/* Timestamp */}
       <div className="mt-2 text-xs text-gray-500">
-        Captured: {formatTimestamp(timestamp)}
+        Captured: {timestamp}
       </div>
       
       {/* Fullscreen dialog */}
@@ -187,7 +172,7 @@ export function HeatmapDisplay({
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         title={`Heatmap: ${cameraId} (${positionId})`}
-        timestamp={formatTimestamp(timestamp)}
+        timestamp={timestamp}
         displayType="heatmap"
         imageUrl={heatmapUrl}
       />

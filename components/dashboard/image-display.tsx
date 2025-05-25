@@ -5,14 +5,13 @@ import { ImageOff, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
-import { formatUtcToLocalDisplay } from "@/lib/datetime-utils";
+import { formatTimestampForBlobPath } from "@/lib/datetime-utils";
 
 interface ImageDisplayProps {
   projectId: string;
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
-  refreshTrigger: number;
   forceLoading?: boolean; // Used to force loading state when timestamp changes
 }
 
@@ -21,7 +20,6 @@ export function ImageDisplay({
   cameraId,
   positionId,
   timestamp,
-  refreshTrigger,
   forceLoading = false
 }: ImageDisplayProps) {
   console.log("🖼️ ImageDisplay render - received timestamp:", timestamp);
@@ -45,7 +43,7 @@ export function ImageDisplay({
         
         // Construct the blob path directly
         // Format: {project_id}-{camera_id}-{position}-{timestamp}_image.jpg
-        const formattedTimestamp = timestamp.replace(/[-:]/g, '_').replace('T', '-').replace('Z', '');
+        const formattedTimestamp = formatTimestampForBlobPath(timestamp);
         const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_small.jpg`;
 
         console.log("🔄 Fetching image blob:", blobName);
@@ -86,7 +84,7 @@ export function ImageDisplay({
     
     console.log("🔄 useEffect triggered with timestamp:", timestamp);
     fetchImageData();
-  }, [projectId, cameraId, positionId, timestamp, refreshTrigger]);
+  }, [projectId, cameraId, positionId, timestamp]);
   
   // Handle force loading
   useEffect(() => {
@@ -100,19 +98,7 @@ export function ImageDisplay({
       return () => clearTimeout(timeoutId);
     }
   }, [forceLoading]);
-  
-  // Format timestamp for display in local time using datetime utils
-  const formatTimestamp = (utcIsoString: string) => {
-    return formatUtcToLocalDisplay(utcIsoString, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false // Use 24-hour format
-    });
-  };
+
   
   const handleOpenDialog = () => {
     if (imageUrl) {
@@ -167,7 +153,7 @@ export function ImageDisplay({
       
       {/* Image info */}
       <div className="mt-2 text-xs text-gray-500">
-        Captured: {formatTimestamp(timestamp)}
+        Captured: {timestamp}
       </div>
       
       {/* Fullscreen dialog */}
@@ -175,7 +161,7 @@ export function ImageDisplay({
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         title={`Camera View: ${cameraId} (${positionId})`}
-        timestamp={formatTimestamp(timestamp)}
+        timestamp={timestamp}
         displayType="image"
         imageUrl={imageUrl}
       />
