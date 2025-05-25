@@ -27,7 +27,6 @@ import {
   TimeSeriesPoint, 
   CameraTimestamp 
 } from "@/models/dashboard";
-import { fromZonedTime } from "date-fns-tz";
 
 // Dashboard states
 type DashboardState = 'initial' | 'loading' | 'success' | 'error' | 'empty';
