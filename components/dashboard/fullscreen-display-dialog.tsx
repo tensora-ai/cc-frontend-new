@@ -5,6 +5,7 @@ import Image from "next/image";
 import { X, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Plot from 'react-plotly.js';
+import { formatUtcToLocalDisplay } from "@/lib/datetime-utils";
 
 type DisplayType = "image" | "heatmap" | "density";
 
@@ -129,7 +130,7 @@ export function FullscreenDisplayDialog({
           <DialogTitle>{title}</DialogTitle>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">
-              Captured: {timestamp}
+              Captured: {formatUtcToLocalDisplay(timestamp)}
             </span>
             {imageUrl && (
               <Button variant="outline" size="sm" onClick={handleDownload}>

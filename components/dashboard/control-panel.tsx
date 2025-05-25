@@ -13,6 +13,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { convertFromLocalTimeToUtc } from "@/lib/datetime-utils";
 
 interface ControlPanelProps {
   date: Date;  // This is the date in local time
@@ -58,8 +59,11 @@ export function ControlPanel({
     newLocalDate.setSeconds(0); // Reset seconds to avoid issues
     newLocalDate.setMilliseconds(0); // Reset milliseconds to avoid issues
     
+    // Format the date to UTC
+    const newUtcDate = convertFromLocalTimeToUtc(newLocalDate);
+
     // Pass the local date directly to parent
-    onDateChange(newLocalDate);
+    onDateChange(newUtcDate);
   };
   
   // Handle date selection in local time

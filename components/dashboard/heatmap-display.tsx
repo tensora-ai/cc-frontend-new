@@ -5,7 +5,7 @@ import { BarChart2, FileWarning, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
-import { formatTimestampForBlobPath } from "@/lib/datetime-utils";
+import { formatTimestampForBlobPath, formatUtcToLocalDisplay } from "@/lib/datetime-utils";
 
 interface HeatmapDisplayProps {
   projectId: string;
@@ -164,7 +164,7 @@ export function HeatmapDisplay({
       
       {/* Timestamp */}
       <div className="mt-2 text-xs text-gray-500">
-        Captured: {timestamp}
+        Captured: {formatUtcToLocalDisplay(timestamp)}
       </div>
       
       {/* Fullscreen dialog */}

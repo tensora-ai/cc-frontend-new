@@ -5,7 +5,7 @@ import { ImageOff, RefreshCw, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
-import { formatTimestampForBlobPath } from "@/lib/datetime-utils";
+import { formatTimestampForBlobPath, formatUtcToLocalDisplay } from "@/lib/datetime-utils";
 
 interface ImageDisplayProps {
   projectId: string;
@@ -153,7 +153,7 @@ export function ImageDisplay({
       
       {/* Image info */}
       <div className="mt-2 text-xs text-gray-500">
-        Captured: {timestamp}
+        Captured: {formatUtcToLocalDisplay(timestamp)}
       </div>
       
       {/* Fullscreen dialog */}

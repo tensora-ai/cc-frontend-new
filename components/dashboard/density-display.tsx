@@ -6,7 +6,7 @@ import Plot from 'react-plotly.js';
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 import { DensityResponse } from "@/models/dashboard";
-import { formatTimestampForBlobPath } from "@/lib/datetime-utils";
+import { formatTimestampForBlobPath, formatUtcToLocalDisplay } from "@/lib/datetime-utils";
 
 interface DensityDisplayProps {
   projectId: string;
@@ -231,8 +231,8 @@ export function DensityDisplay({
       </div>
 
       <div className="mt-2 text-xs text-gray-500 space-y-1">
-        <div>Captured: {timestamp}</div>
-        <div>Grid: {dataWidth} × {dataHeight} cells ({physicalWidth}m × {physicalHeight}m)</div>
+        <div>Captured: {formatUtcToLocalDisplay(timestamp)}</div>
+        <div>Dimensions: {physicalWidth}m × {physicalHeight}m</div>
         {heatmapConfig && (
           <div>Crop area: [{heatmapConfig.join(', ')}] meters</div>
         )}

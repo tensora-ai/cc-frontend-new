@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { 
   getLocalNow, 
-  formatUtcDateToIsoString 
+  formatUtcDateToIsoString
 } from "@/lib/datetime-utils";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
@@ -63,13 +63,13 @@ export default function DashboardPage() {
   // Check if we have valid prediction data
   const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;
 
-  // Utility function to find nearest timestamp
-  const findNearestTimestamp = (
+  // Utility function to find nearest timestamp - memoized with useCallback
+  const findNearestTimestamp = useCallback((
     cameraId: string, 
     positionId: string, 
     targetTimestamp: string
   ): string | null => {
-    // If there are no timestamps, return null instead of target timestamp
+    // If there are no timestamps, return null
     if (cameraTimestamps.length === 0) {
       return null;
     }
@@ -79,7 +79,7 @@ export default function DashboardPage() {
       ct => ct.camera_id === cameraId && ct.position === positionId
     );
 
-    // If no relevant timestamps, return null instead of target timestamp
+    // If no relevant timestamps, return null
     if (relevantTimestamps.length === 0) {
       return null;
     }
@@ -95,12 +95,14 @@ export default function DashboardPage() {
     });
 
     return relevantTimestamps[0].timestamp;
-  };
-  
-  // PRE-CALCULATION LOGIC: Calculate timestamps for all camera configs when clicked timestamp changes
-  // This ensures display components get new props and re-render automatically
+  }, [cameraTimestamps]);
+
+  // Calculate timestamps for all camera configs when relevant state changes
   useEffect(() => {
-    if (!project || !hasValidData || !selectedArea) return;
+    if (!project || !selectedArea) return;
+    
+    // We need either valid data or a clicked timestamp to proceed
+    if (!hasValidData && !clickedTimestamp) return;
 
     const targetTimestamp = clickedTimestamp || formatUtcDateToIsoString(selectedDate);
     const selectedAreaData = project.areas.find(area => area.id === selectedArea);
@@ -112,12 +114,12 @@ export default function DashboardPage() {
     selectedAreaData.camera_configs.forEach((config) => {
       const key = `${config.camera_id}-${config.position.name}`;
       const timestamp = findNearestTimestamp(config.camera_id, config.position.name, targetTimestamp);
-      newTimestamps[key] = timestamp; // Can be null now
+      newTimestamps[key] = timestamp;
     });
 
     setCameraConfigTimestamps(newTimestamps);
     console.log("🔄 Updated camera config timestamps:", newTimestamps);
-  }, [clickedTimestamp, selectedDate, project, selectedArea, hasValidData, cameraTimestamps, findNearestTimestamp]);
+  }, [clickedTimestamp, selectedDate, project, selectedArea, hasValidData, findNearestTimestamp]);
   
   // Handle date changes from control panel
   const handleDateChange = (newDate: Date) => {
@@ -133,11 +135,10 @@ export default function DashboardPage() {
     setClickedTimestamp(null);
   };
   
-  // GRAPH CLICK LOGIC: Much cleaner graph point click handler
+  // GRAPH CLICK LOGIC
   const handleGraphPointClick = (timestamp: string) => {
     console.log("🔍 Graph clicked with timestamp:", timestamp);
     setClickedTimestamp(timestamp);
-    // Note: useEffect below will automatically recalculate camera timestamps
   };
 
   // Auto-select latest data point when data loads
@@ -156,6 +157,7 @@ export default function DashboardPage() {
       setDashboardState('loading');
       setDataError(null);
       setClickedTimestamp(null);
+      setCameraConfigTimestamps({}); // Reset pre-calculated timestamps
       
       // Convert local time to UTC for API request
       const endDate = formatUtcDateToIsoString(selectedDate);
@@ -343,9 +345,7 @@ export default function DashboardPage() {
   
   // RENDERING LOGIC: Use pre-calculated timestamps to ensure proper re-rendering
   const renderCameraConfigPanels = (cameraConfigs: CameraConfig[]) => {
-    // Only show if we have valid data
-    if (!hasValidData) return null;
-    
+    // Check if we have camera configs
     if (cameraConfigs.length === 0) {
       return (
         <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded">
@@ -355,12 +355,25 @@ export default function DashboardPage() {
       );
     }
     
+    // Check if we have any timestamps
+    const hasAnyTimestamps = Object.values(cameraConfigTimestamps).some(timestamp => timestamp !== null);
+    
+    if (!hasAnyTimestamps) {
+      return (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded">
+          <p className="font-medium">No camera data available</p>
+          <p className="text-sm mt-1">No timestamps found for cameras in this area. Try applying different settings.</p>
+        </div>
+      );
+    }
+    
     return cameraConfigs.map((config) => {
       // Get pre-calculated timestamp from state
       const configKey = `${config.camera_id}-${config.position.name}`;
-      const cameraTimestamp = cameraConfigTimestamps[configKey] || null;
-
-      // Only render display components if we have a valid timestamp
+      const cameraTimestamp = cameraConfigTimestamps[configKey];
+      
+      console.log(`📷 Rendering config ${configKey} with timestamp:`, cameraTimestamp);
+      
       return (
         <div key={config.id} className="bg-white rounded-lg border shadow-sm p-4 mb-6">
           <h3 className="text-lg font-medium mb-4">
@@ -404,8 +417,8 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="bg-amber-50 border border-amber-200 text-amber-700 p-4 rounded">
-              <p>No data available for this camera configuration at the selected time.</p>
-              <p className="text-sm mt-1">Try adjusting the time range or selecting a different date.</p>
+              <p className="font-medium">No data available for this camera configuration</p>
+              <p className="text-sm mt-1">There are no matching timestamps for this camera at the selected time.</p>
             </div>
           )}
         </div>
@@ -455,7 +468,7 @@ export default function DashboardPage() {
             />
           </div>
           
-          {/* Camera Configuration Panels - only with valid data */}
+          {/* Camera Configuration Panels - no hasValidData check here */}
           {renderCameraConfigPanels(area.camera_configs)}
         </>
       )}
