@@ -50,6 +50,10 @@ export default function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(getDefaultDate);
   const [lookbackHours, setLookbackHours] = useState<number>(getDefaultLookback);
   
+  // Live mode state
+  const [liveMode, setLiveMode] = useState<boolean>(false);
+  const [liveModeCountdown, setLiveModeCountdown] = useState<number>(30);
+  
   // Dashboard state management
   const [dashboardState, setDashboardState] = useState<DashboardState>('initial');
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
@@ -256,6 +260,63 @@ export default function DashboardPage() {
       setDashboardState('error');
     }
   };
+
+  // Handle live mode toggle
+  const handleLiveModeToggle = (enabled: boolean) => {
+    setLiveMode(enabled);
+    
+    if (enabled) {
+      // When enabling live mode, update to current time and fetch latest data
+      setSelectedDate(getLocalNow());
+      setClickedTimestamp(null);
+      // Immediately fetch data
+      setTimeout(() => {
+        handleApplySettings();
+      }, 100);
+      // Reset countdown
+      setLiveModeCountdown(30);
+    } else {
+      // When disabling live mode, reset countdown
+      setLiveModeCountdown(30);
+    }
+  };
+
+  // Live mode timer effect
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    let countdownId: NodeJS.Timeout;
+
+    if (liveMode) {
+      // Main refresh timer - refresh data every 30 seconds
+      intervalId = setInterval(() => {
+        // Update to current time
+        setSelectedDate(getLocalNow());
+        setClickedTimestamp(null);
+        
+        // Fetch fresh data
+        handleApplySettings();
+        
+        // Reset countdown
+        setLiveModeCountdown(30);
+      }, 30000);
+
+      // Countdown timer - update every second
+      countdownId = setInterval(() => {
+        setLiveModeCountdown(prev => {
+          if (prev <= 1) {
+            return 30; // Reset to 30 when it reaches 0
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    // Cleanup timers when live mode is disabled or component unmounts
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      if (countdownId) clearInterval(countdownId);
+    };
+  }, [liveMode]); // Only depend on liveMode to avoid infinite loops
   
   // Load project data
   useEffect(() => {
@@ -485,6 +546,9 @@ export default function DashboardPage() {
         onApply={handleApplySettings}
         loading={dashboardState === 'loading'}
         showApplyButton={true}
+        liveMode={liveMode}
+        onLiveModeChange={handleLiveModeToggle}
+        liveModeCountdown={liveModeCountdown}
       />
       
       {/* Show content based on dashboard state */}
@@ -553,6 +617,9 @@ export default function DashboardPage() {
             setDataError(null);
             setClickedTimestamp(null);
             setCameraConfigTimestamps({}); // Reset pre-calculated timestamps
+            // Disable live mode when switching areas to avoid confusion
+            setLiveMode(false);
+            setLiveModeCountdown(30);
           }}
           className="w-full"
         >

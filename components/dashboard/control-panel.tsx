@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Calendar, Clock, RefreshCw, Play } from "lucide-react";
+import { Calendar, Clock, RefreshCw, Play, Pause, Radio } from "lucide-react";
 import { format } from "date-fns";
 import { 
   Popover,
@@ -24,6 +24,10 @@ interface ControlPanelProps {
   onApply?: () => void;
   loading?: boolean;     // Loading state
   showApplyButton?: boolean; // Whether to show apply button
+  // New live mode props
+  liveMode?: boolean;
+  onLiveModeChange?: (enabled: boolean) => void;
+  liveModeCountdown?: number; // Seconds until next refresh
 }
 
 export function ControlPanel({
@@ -34,7 +38,10 @@ export function ControlPanel({
   onReset,
   onApply,
   loading = false,
-  showApplyButton = false
+  showApplyButton = false,
+  liveMode = false,
+  onLiveModeChange,
+  liveModeCountdown = 0
 }: ControlPanelProps) { 
   // Format date as YYYY-MM-DD
   const formattedDate = useMemo(() => {
@@ -84,6 +91,20 @@ export function ControlPanel({
   
   // Generate minute options
   const minuteOptions = Array.from({ length: 60 }, (_, i) => i);
+
+  // Handle live mode toggle
+  const handleLiveModeToggle = () => {
+    if (onLiveModeChange) {
+      onLiveModeChange(!liveMode);
+    }
+  };
+
+  // Format countdown display
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
   
   return (
     <div className="bg-white rounded-lg border p-4 shadow-sm space-y-4">
@@ -96,7 +117,7 @@ export function ControlPanel({
               <Button 
                 variant="outline" 
                 className="w-full justify-start text-left font-normal h-10"
-                disabled={loading}
+                disabled={loading || liveMode}
               >
                 <Calendar className="mr-2 h-4 w-4" />
                 {formattedDate}
@@ -127,7 +148,7 @@ export function ControlPanel({
                 setHour(newHour);
                 handleTimeChange(newHour, minute);
               }}
-              disabled={loading}
+              disabled={loading || liveMode}
             >
               <SelectTrigger className="w-24">
                 <SelectValue placeholder="Hour" />
@@ -151,7 +172,7 @@ export function ControlPanel({
                 setMinute(newMinute);
                 handleTimeChange(hour, newMinute);
               }}
-              disabled={loading}
+              disabled={loading || liveMode}
             >
               <SelectTrigger className="w-24">
                 <SelectValue placeholder="Minute" />
@@ -182,18 +203,44 @@ export function ControlPanel({
             step={1}
             onValueChange={(values) => onLookbackChange(values[0])}
             className="w-full"
-            disabled={loading}
+            disabled={loading || liveMode}
           />
         </div>
         
         {/* Action Buttons */}
         <div className="flex items-end gap-2">
+          {/* Live Mode Toggle */}
+          {onLiveModeChange && (
+            <div className="flex flex-col items-center gap-1">
+              <Button 
+                variant={liveMode ? "default" : "outline"}
+                size="sm"
+                className={liveMode ? 
+                  "bg-green-600 hover:bg-green-700 text-white" : 
+                  "text-green-600 border-green-600 hover:bg-green-50"
+                }
+                onClick={handleLiveModeToggle}
+                disabled={loading}
+              >
+                {liveMode ? (
+                  <>
+                    <Radio className="h-4 w-4 mr-2 animate-pulse" /> Live
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" /> Live Mode
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+          
           <Button 
             variant="outline" 
             size="sm"
             className="text-[var(--tensora-medium)]"
             onClick={onReset}
-            disabled={loading}
+            disabled={loading || liveMode}
           >
             <RefreshCw className="h-4 w-4 mr-2" /> Reset
           </Button>
@@ -203,7 +250,7 @@ export function ControlPanel({
               size="sm"
               className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)]"
               onClick={onApply}
-              disabled={loading}
+              disabled={loading || liveMode}
             >
               {loading ? (
                 <>
@@ -218,6 +265,24 @@ export function ControlPanel({
           )}
         </div>
       </div>
+
+      {/* Live Mode Status Banner */}
+      {liveMode && (
+        <div className="bg-green-50 border border-green-200 rounded-md p-3 flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="flex items-center mr-3">
+              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+              <span className="text-green-700 font-medium text-sm">Live Mode Active</span>
+            </div>
+            <span className="text-green-600 text-sm">
+              Auto-refreshing every 30 seconds
+            </span>
+          </div>
+          <div className="text-green-700 font-mono text-sm">
+            {formatCountdown(liveModeCountdown)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
