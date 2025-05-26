@@ -1,11 +1,11 @@
 "use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Image from "next/image";
-import { X, Download } from "lucide-react";
+import { X, Download, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Plot from 'react-plotly.js';
-import { formatUtcToLocalDisplay } from "@/lib/datetime-utils";
+import { formatTimestampForBlobPath, formatUtcToLocalDisplay } from "@/lib/datetime-utils";
+import { useEffect, useState, useRef, useCallback } from "react";
 
 type DisplayType = "image" | "heatmap" | "density";
 
@@ -13,7 +13,7 @@ interface FullscreenDisplayDialogProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  timestamp: string; // This should already be formatted by the parent component
+  timestamp: string;
   displayType: DisplayType;
   imageUrl?: string;
   densityData?: number[][];
@@ -24,25 +24,115 @@ export function FullscreenDisplayDialog({
   isOpen,
   onClose,
   title,
-  timestamp, // Already formatted timestamp from parent component
+  timestamp,
   displayType,
   imageUrl,
   densityData,
   heatmapConfig
 }: FullscreenDisplayDialogProps) {
-  const handleDownload = () => {
-    if (imageUrl) {
-      // Create a temporary link element
-      const link = document.createElement('a');
-      link.href = imageUrl;
-      link.download = `${displayType}-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+  const plotRef = useRef<any>(null);
+
+  // Track window size for responsive sizing
+  useEffect(() => {
+    const updateSize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  // Handle ESC key
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
     }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
+
+  // Calculate maximum available space
+  const getContentDimensions = () => {
+    // Account for: 
+    // - 32px padding on each side (64px total horizontal)
+    // - 5% viewport margin on each side (10% total)
+    // - Header height (~70px) and content padding (~48px)
+    const availableHeight = Math.min(windowSize.height * 0.95, windowSize.height - 64) - 118;
+    const availableWidth = Math.min(windowSize.width * 0.95, windowSize.width - 64) - 48;
+    
+    return {
+      maxWidth: Math.max(availableWidth, 600), // Minimum reasonable width
+      maxHeight: Math.max(availableHeight, 400) // Minimum reasonable height
+    };
   };
-  
-  // Create density plot data if density display
+
+  const { maxWidth, maxHeight } = getContentDimensions();
+
+  // Enhanced download functionality
+  const handleDownload = useCallback(async () => {
+    try {
+      const filenameTimestamp = formatTimestampForBlobPath(timestamp);
+      const cleanTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+      if (displayType === "density" && densityData) {
+        // For density data, export the plot as an image
+        if (plotRef.current && plotRef.current.el) {
+          const plotElement = plotRef.current.el;
+          const canvas = plotElement.querySelector('canvas');
+          if (canvas) {
+            const link = document.createElement('a');
+            link.download = `density_${cleanTitle}_${filenameTimestamp}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+          }
+        }
+      } else if (imageUrl) {
+        try {
+          const response = await fetch(imageUrl);
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          
+          const extension = displayType === 'image' ? 'jpg' : 'png';
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${displayType}_${cleanTitle}_${filenameTimestamp}.${extension}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          window.URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error('Download failed:', error);
+          const extension = displayType === 'image' ? 'jpg' : 'png';
+          const link = document.createElement('a');
+          link.href = imageUrl;
+          link.download = `${displayType}_${cleanTitle}_${filenameTimestamp}.${extension}`;
+          link.target = '_blank';
+          link.click();
+        }
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  }, [displayType, densityData, imageUrl, title, timestamp, plotRef]);
+
+  // Create density plot data
   const getDensityPlotData = () => {
     if (!densityData) return null;
     
@@ -86,10 +176,11 @@ export function FullscreenDisplayDialog({
       colorbar: {
         title: {
           text: 'Density (people/m²)',
-          font: { color: '#808080', size: 12 }
+          font: { color: '#374151', size: 16 }
         },
-        tickfont: { color: '#808080' },
-        len: 0.8
+        tickfont: { color: '#374151', size: 14 },
+        len: 0.8,
+        thickness: 25
       }
     }];
   };
@@ -97,78 +188,150 @@ export function FullscreenDisplayDialog({
   // Get density plot layout
   const getDensityPlotLayout = () => {
     return {
-      title: '',
+      title: {
+        text: '',
+        font: { size: 18, color: '#374151' }
+      },
       xaxis: {
-        title: 'Distance (meters)',
-        tickfont: { color: '#808080' },
-        titlefont: { color: '#808080' },
-        showgrid: false,
+        title: {
+          text: 'Distance (meters)',
+          font: { size: 16, color: '#374151' }
+        },
+        tickfont: { color: '#374151', size: 14 },
+        showgrid: true,
+        gridcolor: 'rgba(156, 163, 175, 0.3)',
         zeroline: false
       },
       yaxis: {
-        title: 'Distance (meters)',
-        tickfont: { color: '#808080' },
-        titlefont: { color: '#808080' },
-        showgrid: false,
+        title: {
+          text: 'Distance (meters)', 
+          font: { size: 16, color: '#374151' }
+        },
+        tickfont: { color: '#374151', size: 14 },
+        showgrid: true,
+        gridcolor: 'rgba(156, 163, 175, 0.3)',
         zeroline: false,
         scaleanchor: 'x',
         scaleratio: 1
       },
-      margin: { l: 70, r: 70, t: 20, b: 70 },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
-      font: { color: '#808080' },
-      width: 900,
-      height: 700
+      margin: { l: 80, r: 100, t: 20, b: 80 },
+      paper_bgcolor: 'rgba(255,255,255,1)',
+      plot_bgcolor: 'rgba(249,250,251,1)',
+      font: { color: '#374151', size: 14 },
+      width: Math.min(maxWidth - 60, 1400),  // Use available width with some margin
+      height: Math.min(maxHeight - 60, 900), // Use available height with some margin
+      autosize: false
     };
   };
 
+  // Don't render if not open
+  if (!isOpen) return null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl w-[95vw] max-h-[95vh] overflow-hidden">
-        <DialogHeader className="flex flex-row items-center justify-between">
-          <DialogTitle>{title}</DialogTitle>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal Content */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
+        <div className="w-full h-full max-w-[95vw] max-h-[95vh] flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 border-b shrink-0">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-semibold text-gray-900 truncate pr-4">
+              {title}
+            </h2>
+            <p className="text-sm text-gray-500 truncate">
               Captured: {formatUtcToLocalDisplay(timestamp)}
-            </span>
-            {imageUrl && (
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-1" /> Download
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Only show download button for images and heatmaps */}
+            {(displayType === "image" || displayType === "heatmap") && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDownload}
+                className="bg-blue-600 border-blue-500 text-white hover:bg-blue-700"
+              >
+                <Download className="h-4 w-4 mr-1" /> 
+                Download
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onClose}
+              className="hover:bg-gray-100"
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
-        </DialogHeader>
-        
-        <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
-          {(displayType === "image" || displayType === "heatmap") && imageUrl && (
-            <div className="flex items-center justify-center h-full">
-              <Image
-                src={imageUrl}
-                alt={displayType === "image" ? "Camera view" : "Heatmap visualization"}
-                width={1600}
-                height={900}
-                className="max-w-full max-h-[70vh] object-contain"
-                unoptimized
-              />
-            </div>
-          )}
-          
-          {displayType === "density" && densityData && (
-            <div className="flex items-center justify-center h-full">
-              <Plot
-                data={getDensityPlotData() as any}
-                layout={getDensityPlotLayout() as any}
-                config={{ responsive: true }}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </div>
-          )}
         </div>
-      </DialogContent>
-    </Dialog>
+        
+        {/* Content Area - This takes up the remaining space */}
+        <div className="flex-1 bg-gray-100 overflow-hidden">
+          <div className="w-full h-full flex items-center justify-center">
+            {(displayType === "image" || displayType === "heatmap") && imageUrl && (
+              <div className="w-full h-full flex items-center justify-center rounded-lg p-4">
+                <Image
+                  src={imageUrl}
+                  alt={displayType === "image" ? "Camera view" : "Heatmap visualization"}
+                  width={2000}
+                  height={2000}
+                  className="max-w-full max-h-full object-contain rounded"
+                  unoptimized
+                  priority
+                />
+              </div>
+            )}
+            
+            {displayType === "density" && densityData && (
+              <div className="w-full h-full flex items-center justify-center rounded-lg p-4">
+                <Plot
+                  ref={plotRef}
+                  data={getDensityPlotData() as any}
+                  layout={getDensityPlotLayout() as any}
+                  config={{ 
+                    responsive: false,
+                    displayModeBar: true,
+                    displaylogo: false,
+                    modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d']
+                  }}
+                />
+              </div>
+            )}
+            
+            {/* Loading/Error States */}
+            {!imageUrl && !densityData && (
+              <div className="text-center bg-white rounded-lg shadow-lg p-8">
+                <Maximize2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-xl">No content available to display</p>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Optional Footer */}
+        {(heatmapConfig || densityData) && (
+          <div className="bg-gray-50 border-t px-4 py-2 text-xs text-gray-500 shrink-0">
+            {heatmapConfig && (
+              <span className="mr-4">
+                Crop area: [{heatmapConfig.join(', ')}] meters
+              </span>
+            )}
+            {densityData && (
+              <span>
+                Resolution: {densityData[0]?.length || 0} × {densityData.length} points
+              </span>
+            )}
+          </div>
+        )}
+        </div>
+      </div>
+    </>
   );
 }
