@@ -64,14 +64,52 @@ export function CrowdGraph({ data, isLoading, onPointClick, error }: CrowdGraphP
     }
   }, [data, selectedPoint, chartData]);
   
-  const calculateYDomain = () => {
-    if (!data || data.length === 0) return [0, 10];
+  const getOptimalStepAndMax = () => {
+    if (!data || data.length === 0) return { step: 10, max: 100 };
     
     const maxValue = Math.max(...data.map(point => point.value));
-    // Add more padding for larger numbers
-    const paddedMax = Math.ceil(maxValue * 1.2); 
     
-    return [0, paddedMax];
+    let step: number;
+    let roundedMax: number;
+    
+    if (maxValue <= 50) {
+      step = 10;
+      roundedMax = Math.ceil(maxValue / 10) * 10;
+    } else if (maxValue <= 100) {
+      step = 20;
+      roundedMax = Math.ceil(maxValue / 20) * 20;
+    } else if (maxValue <= 500) {
+      step = 50;
+      roundedMax = Math.ceil(maxValue / 50) * 50;
+    } else if (maxValue <= 1000) {
+      step = 100;
+      roundedMax = Math.ceil(maxValue / 100) * 100;
+    } else if (maxValue <= 5000) {
+      step = 500;
+      roundedMax = Math.ceil(maxValue / 500) * 500;
+    } else if (maxValue <= 10000) {
+      step = 1000;
+      roundedMax = Math.ceil(maxValue / 1000) * 1000;
+    } else {
+      step = 2000;
+      roundedMax = Math.ceil(maxValue / 2000) * 2000;
+    }
+    
+    return { step, max: roundedMax };
+  };
+  
+  const calculateYDomain = () => {
+    const { max } = getOptimalStepAndMax();
+    return [0, max];
+  };
+  
+  const generateYAxisTicks = () => {
+    const { step, max } = getOptimalStepAndMax();
+    const ticks = [];
+    for (let i = 0; i <= max; i += step) {
+      ticks.push(i);
+    }
+    return ticks;
   };
   
   const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
@@ -223,6 +261,7 @@ export function CrowdGraph({ data, isLoading, onPointClick, error }: CrowdGraphP
             />
             <YAxis 
               domain={calculateYDomain()}
+              ticks={generateYAxisTicks()}
               tickMargin={10}
               tickLine={false}
               axisLine={false}
