@@ -7,15 +7,19 @@ import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 import { DensityResponse } from "@/models/dashboard";
 import { formatTimestampForBlobPath, formatUtcToLocalDisplay } from "@/lib/datetime-utils";
+import { HeatmapConfig } from "@/models/project";
 
 interface DensityDisplayProps {
   projectId: string;
   cameraId: string;
   positionId: string;
   timestamp: string;  // This is a UTC ISO string
-  heatmapConfig?: [number, number, number, number]; // [left, top, right, bottom]
+  heatmapConfig?: HeatmapConfig; // [left, top, right, bottom]
   forceLoading?: boolean;
 }
+
+// Coordinate point from transformed density JSON: [x, y, density_value]
+type CoordinatePoint = [number, number, number];
 
 export function DensityDisplay({
   projectId,
@@ -33,6 +37,61 @@ export function DensityDisplay({
   
   // State for fullscreen dialog
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Helper function to filter coordinates based on crop area (from old frontend)
+  const filterCoords = (coords: CoordinatePoint[], crop: HeatmapConfig): CoordinatePoint[] => {
+    const [left, top, right, bottom] = crop;
+    return coords.filter(([x, y, val]) => 
+      x >= left && x <= right && y >= top && y <= bottom
+    );
+  };
+
+  // Helper function to convert coordinates to 2D array (from old frontend)
+  const convertToArray = (
+    items: CoordinatePoint[], 
+    dateStr: string, 
+    crop?: [number, number, number, number]
+  ): number[][] => {
+    let l: number, t: number, r: number, b: number;
+    
+    if (crop) {
+      [l, t, r, b] = crop;
+    } else {
+      l = Math.min(...items.map(x => x[0]));
+      t = Math.min(...items.map(x => x[1]));
+      r = Math.max(...items.map(x => x[0])) + 1;
+      b = Math.max(...items.map(x => x[1])) + 1;
+    }
+
+    // Date-specific meter conversion (from old frontend)
+    const meterConversion = (dateStr === "2024-08-01" || dateStr === "2024-07-31") ? 2 : 1;
+
+    // Calculate the dimensions of the array
+    const width = (r - l) * meterConversion;
+    const height = (b - t) * meterConversion;
+
+    // Create an empty array filled with zeros
+    const array: number[][] = Array(height).fill(null).map(() => Array(width).fill(0));
+
+    // Fill the array with intensity values
+    for (const [x, y, val] of items) {
+      if (l <= x && x < r && t <= y && y < b) {
+        // Convert coordinates to array indices
+        const j = Math.floor((x - l) * meterConversion);
+        const i = Math.floor((y - t) * meterConversion);
+        
+        if (0 <= i && i < height && 0 <= j && j < width) {
+          // Apply the same value capping as old frontend
+          const maxValue = Math.random() < 0.1 ? 
+            [5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2][Math.floor(Math.random() * 9)] : 
+            6.0;
+          array[height - i - 1][j] = Math.min(Math.round(val * 10) / 10, maxValue);
+        }
+      }
+    }
+
+    return array;
+  };
 
   // Calculate min/max values from the actual data
   const getDataRange = (data: number[][]) => {
@@ -69,10 +128,10 @@ export function DensityDisplay({
         setLoading(true);
         setError(null);
 
-        // Construct the blob path directly
-        // Format: {project_id}-{camera_id}-{position}-{timestamp}_density.json
+        // Construct the blob path for TRANSFORMED density data
+        // Format: {project_id}-{camera_id}-{position}-{timestamp}_transformed_density.json
         const formattedTimestamp = formatTimestampForBlobPath(timestamp);
-        const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_density.json`;
+        const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_transformed_density.json`;
         
         // Use the direct blob access endpoint
         const blobUrl = `/api/blobs/predictions/${blobName}`;
@@ -92,14 +151,34 @@ export function DensityDisplay({
           return;
         }
 
-        // Get heatmap as blob
+        // Get density data as blob
         const blob = await response.blob();
         
-        // Parse the JSON response
+        // Parse the JSON response - this should be coordinate data: [[x, y, density], ...]
         const text = await blob.text();
-        const densityData: number[][] = JSON.parse(text);
+        const coordinateData: CoordinatePoint[] = JSON.parse(text);
+        
+        console.log("📊 Raw coordinate data:", coordinateData.slice(0, 5)); // Log first 5 points
+        
+        // Apply filtering and conversion logic from old frontend
+        let processedCoords = coordinateData;
+        
+        // Apply cropping if heatmapConfig is provided
+        if (heatmapConfig) {
+          processedCoords = filterCoords(coordinateData, heatmapConfig);
+          console.log("📊 Filtered coordinates:", processedCoords.length, "from", coordinateData.length);
+        }
+        
+        // Extract date from timestamp for meter conversion logic
+        const dateStr = timestamp.split('T')[0];
+        
+        // Convert coordinates to 2D array
+        const densityArray = convertToArray(processedCoords, dateStr, heatmapConfig);
+        
+        console.log("📊 Converted array dimensions:", densityArray.length, "x", densityArray[0]?.length);
+        
         const densityResponse: DensityResponse = {
-          data: densityData,
+          data: densityArray,
           timestamp: timestamp
         };
         setDensityResponse(densityResponse);
@@ -114,7 +193,7 @@ export function DensityDisplay({
 
     console.log("🔄 useEffect triggered with timestamp:", timestamp);
     fetchDensityData();
-  }, [projectId, cameraId, positionId, timestamp]);
+  }, [projectId, cameraId, positionId, timestamp, heatmapConfig]);
 
   useEffect(() => {
     if (forceLoading) {
@@ -172,6 +251,7 @@ export function DensityDisplay({
   // Calculate actual min/max from data
   const { min: dataMin, max: dataMax } = getDataRange(data);
 
+  // Calculate physical dimensions and coordinates (matching old frontend logic)
   let physicalWidth = dataWidth;
   let physicalHeight = dataHeight;
   let xOffset = 0;
@@ -185,37 +265,30 @@ export function DensityDisplay({
     yOffset = top;
   }
 
+  // Create coordinate arrays matching the old frontend
   const xCoords = Array.from({ length: dataWidth }, (_, i) =>
     xOffset + (i * (physicalWidth / dataWidth))
   );
-  // Flip Y coordinates to match image orientation (Y=0 at top)
+  
+  // Y coordinates - match the old frontend logic with origin="lower"
   const yCoords = Array.from({ length: dataHeight }, (_, i) =>
     yOffset + ((dataHeight - 1 - i) * (physicalHeight / dataHeight))
   );
 
-  // Enhanced colorscale with better visual distinction
+  // Use viridis colorscale to match old frontend (they commented out custom scale)
   const plotData = [{
     z: data,
     x: xCoords,
     y: yCoords,
     type: 'heatmap',
-    colorscale: [
-      [0, 'rgb(5, 48, 97)'],      // Dark blue (lowest density)
-      [0.2, 'rgb(33, 102, 172)'], // Medium blue
-      [0.4, 'rgb(67, 147, 195)'], // Light blue
-      [0.6, 'rgb(146, 197, 222)'], // Very light blue
-      [0.7, 'rgb(209, 229, 240)'], // Almost white
-      [0.8, 'rgb(253, 219, 199)'], // Light orange
-      [0.9, 'rgb(244, 165, 130)'], // Medium orange
-      [1, 'rgb(214, 96, 77)']     // Dark red (highest density)
-    ],
-    zmin: dataMin,
-    zmax: dataMax,
+    colorscale: 'viridis', // Match old frontend
+    zmin: 0,  // Match old frontend (zmin=0)
+    zmax: 7,  // Match old frontend (zmax=7)
     hovertemplate: 'X: %{x:.1f}m<br>Y: %{y:.1f}m<br>Density: %{z:.3f}/m²<extra></extra>',
     showscale: true,
     colorbar: {
       title: {
-        text: 'Density (people/m²)',
+        text: 'people/m²',
         font: { color: '#808080', size: 12 }
       },
       tickfont: { color: '#808080' },
@@ -227,14 +300,14 @@ export function DensityDisplay({
   const layout = {
     title: '',
     xaxis: {
-      title: 'Distance (meters)',
+      title: 'Distance (meters)', // Match old frontend
       tickfont: { color: '#808080' },
       titlefont: { color: '#808080' },
       showgrid: false,
       zeroline: false
     },
     yaxis: {
-      title: 'Distance (meters)',
+      title: 'Distance (meters)', // Match old frontend
       tickfont: { color: '#808080' },
       titlefont: { color: '#808080' },
       showgrid: false,
@@ -243,9 +316,9 @@ export function DensityDisplay({
       scaleratio: 1
     },
     margin: { l: 60, r: 60, t: 10, b: 60 },
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { color: '#808080' }
+    paper_bgcolor: 'rgba(0,0,0,0)', // Match old frontend
+    plot_bgcolor: 'rgba(0,0,0,0)',  // Match old frontend
+    font: { color: '#808080' }      // Match old frontend
   };
 
   return (

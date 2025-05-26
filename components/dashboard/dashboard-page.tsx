@@ -457,6 +457,7 @@ export default function DashboardPage() {
                   cameraId={config.camera_id}
                   positionId={config.position.name}
                   timestamp={cameraTimestamp}
+                  heatmapConfig={config.heatmap_config}
                 />
               </div>
             </div>

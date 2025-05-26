@@ -147,7 +147,7 @@ export function FullscreenDisplayDialog({
     }
   }, [displayType, densityData, imageUrl, title, timestamp, plotRef]);
 
-  // Create density plot data with enhanced colorscale and dynamic range
+  // Create density plot data matching old frontend logic
   const getDensityPlotData = () => {
     if (!densityData) return null;
     
@@ -173,7 +173,7 @@ export function FullscreenDisplayDialog({
     const xCoords = Array.from({ length: dataWidth }, (_, i) =>
       xOffset + (i * (physicalWidth / dataWidth))
     );
-    // Flip Y coordinates to match image orientation (Y=0 at top)
+    // Y coordinates matching old frontend logic
     const yCoords = Array.from({ length: dataHeight }, (_, i) =>
       yOffset + ((dataHeight - 1 - i) * (physicalHeight / dataHeight))
     );
@@ -183,24 +183,15 @@ export function FullscreenDisplayDialog({
       x: xCoords,
       y: yCoords,
       type: 'heatmap',
-      // Enhanced colorscale with better visual distinction (same as DensityDisplay)
-      colorscale: [
-        [0, 'rgb(5, 48, 97)'],      // Dark blue (lowest density)
-        [0.2, 'rgb(33, 102, 172)'], // Medium blue
-        [0.4, 'rgb(67, 147, 195)'], // Light blue
-        [0.6, 'rgb(146, 197, 222)'], // Very light blue
-        [0.7, 'rgb(209, 229, 240)'], // Almost white
-        [0.8, 'rgb(253, 219, 199)'], // Light orange
-        [0.9, 'rgb(244, 165, 130)'], // Medium orange
-        [1, 'rgb(214, 96, 77)']     // Dark red (highest density)
-      ],
-      zmin: dataMin,
-      zmax: dataMax,
+      // Use viridis colorscale to match old frontend
+      colorscale: 'viridis',
+      zmin: 0,  // Match old frontend (zmin=0)
+      zmax: 7,  // Match old frontend (zmax=7)
       hovertemplate: 'X: %{x:.1f}m<br>Y: %{y:.1f}m<br>Density: %{z:.3f}/m²<extra></extra>',
       showscale: true,
       colorbar: {
         title: {
-          text: 'Density (people/m²)',
+          text: 'density in sqm', // Match old frontend label
           font: { color: '#374151', size: 16 }
         },
         tickfont: { color: '#374151', size: 14 },
@@ -220,21 +211,21 @@ export function FullscreenDisplayDialog({
       },
       xaxis: {
         title: {
-          text: 'Distance (meters)',
+          text: 'Distance (meters)', // Match old frontend
           font: { size: 16, color: '#374151' }
         },
         tickfont: { color: '#374151', size: 14 },
-        showgrid: true,
+        showgrid: false, // Match old frontend
         gridcolor: 'rgba(156, 163, 175, 0.3)',
         zeroline: false
       },
       yaxis: {
         title: {
-          text: 'Distance (meters)', 
+          text: 'Distance (meters)', // Match old frontend
           font: { size: 16, color: '#374151' }
         },
         tickfont: { color: '#374151', size: 14 },
-        showgrid: true,
+        showgrid: false, // Match old frontend
         gridcolor: 'rgba(156, 163, 175, 0.3)',
         zeroline: false,
         scaleanchor: 'x',
