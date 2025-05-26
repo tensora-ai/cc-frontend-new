@@ -34,6 +34,33 @@ export function DensityDisplay({
   // State for fullscreen dialog
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  // Calculate min/max values from the actual data
+  const getDataRange = (data: number[][]) => {
+    let min = Infinity;
+    let max = -Infinity;
+    
+    for (let i = 0; i < data.length; i++) {
+      for (let j = 0; j < data[i].length; j++) {
+        const value = data[i][j];
+        if (value < min) min = value;
+        if (value > max) max = value;
+      }
+    }
+    
+    // If all values are the same, add some range for better visualization
+    if (min === max) {
+      if (min === 0) {
+        max = 0.1;
+      } else {
+        const padding = Math.abs(min) * 0.1;
+        min -= padding;
+        max += padding;
+      }
+    }
+    
+    return { min, max };
+  };
+
   useEffect(() => {
     async function fetchDensityData() {
       if (!projectId || !cameraId || !positionId || !timestamp) return;
@@ -142,6 +169,9 @@ export function DensityDisplay({
   const dataHeight = data.length;
   const dataWidth = data[0]?.length || 0;
 
+  // Calculate actual min/max from data
+  const { min: dataMin, max: dataMax } = getDataRange(data);
+
   let physicalWidth = dataWidth;
   let physicalHeight = dataHeight;
   let xOffset = 0;
@@ -158,23 +188,30 @@ export function DensityDisplay({
   const xCoords = Array.from({ length: dataWidth }, (_, i) =>
     xOffset + (i * (physicalWidth / dataWidth))
   );
+  // Flip Y coordinates to match image orientation (Y=0 at top)
   const yCoords = Array.from({ length: dataHeight }, (_, i) =>
-    yOffset + (i * (physicalHeight / dataHeight))
+    yOffset + ((dataHeight - 1 - i) * (physicalHeight / dataHeight))
   );
 
+  // Enhanced colorscale with better visual distinction
   const plotData = [{
     z: data,
     x: xCoords,
     y: yCoords,
     type: 'heatmap',
     colorscale: [
-      [0, 'rgb(101, 227, 5)'],
-      [0.5, 'rgb(250, 238, 65)'],
-      [1, 'rgb(237, 61, 7)']
+      [0, 'rgb(5, 48, 97)'],      // Dark blue (lowest density)
+      [0.2, 'rgb(33, 102, 172)'], // Medium blue
+      [0.4, 'rgb(67, 147, 195)'], // Light blue
+      [0.6, 'rgb(146, 197, 222)'], // Very light blue
+      [0.7, 'rgb(209, 229, 240)'], // Almost white
+      [0.8, 'rgb(253, 219, 199)'], // Light orange
+      [0.9, 'rgb(244, 165, 130)'], // Medium orange
+      [1, 'rgb(214, 96, 77)']     // Dark red (highest density)
     ],
-    zmin: 0,
-    zmax: 2,
-    hovertemplate: 'X: %{x:.1f}m<br>Y: %{y:.1f}m<br>Density: %{z:.2f}/m²<extra></extra>',
+    zmin: dataMin,
+    zmax: dataMax,
+    hovertemplate: 'X: %{x:.1f}m<br>Y: %{y:.1f}m<br>Density: %{z:.3f}/m²<extra></extra>',
     showscale: true,
     colorbar: {
       title: {
@@ -182,7 +219,8 @@ export function DensityDisplay({
         font: { color: '#808080', size: 12 }
       },
       tickfont: { color: '#808080' },
-      len: 0.8
+      len: 0.8,
+      tickformat: '.3f'
     }
   }];
 
@@ -233,6 +271,7 @@ export function DensityDisplay({
       <div className="mt-2 text-xs text-gray-500 space-y-1">
         <div>Captured: {formatUtcToLocalDisplay(timestamp)}</div>
         <div>Dimensions: {physicalWidth}m × {physicalHeight}m</div>
+        <div>Density range: {dataMin.toFixed(3)} - {dataMax.toFixed(3)} people/m²</div>
         {heatmapConfig && (
           <div>Crop area: [{heatmapConfig.join(', ')}] meters</div>
         )}

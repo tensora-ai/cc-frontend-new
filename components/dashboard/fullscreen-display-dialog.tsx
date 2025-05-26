@@ -33,6 +33,33 @@ export function FullscreenDisplayDialog({
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const plotRef = useRef<any>(null);
 
+  // Calculate min/max values from the actual data (same as DensityDisplay)
+  const getDataRange = (data: number[][]) => {
+    let min = Infinity;
+    let max = -Infinity;
+    
+    for (let i = 0; i < data.length; i++) {
+      for (let j = 0; j < data[i].length; j++) {
+        const value = data[i][j];
+        if (value < min) min = value;
+        if (value > max) max = value;
+      }
+    }
+    
+    // If all values are the same, add some range for better visualization
+    if (min === max) {
+      if (min === 0) {
+        max = 0.1;
+      } else {
+        const padding = Math.abs(min) * 0.1;
+        min -= padding;
+        max += padding;
+      }
+    }
+    
+    return { min, max };
+  };
+
   // Track window size for responsive sizing
   useEffect(() => {
     const updateSize = () => {
@@ -90,19 +117,7 @@ export function FullscreenDisplayDialog({
       const filenameTimestamp = formatTimestampForBlobPath(timestamp);
       const cleanTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
-      if (displayType === "density" && densityData) {
-        // For density data, export the plot as an image
-        if (plotRef.current && plotRef.current.el) {
-          const plotElement = plotRef.current.el;
-          const canvas = plotElement.querySelector('canvas');
-          if (canvas) {
-            const link = document.createElement('a');
-            link.download = `density_${cleanTitle}_${filenameTimestamp}.png`;
-            link.href = canvas.toDataURL();
-            link.click();
-          }
-        }
-      } else if (imageUrl) {
+      if (imageUrl) {
         try {
           const response = await fetch(imageUrl);
           const blob = await response.blob();
@@ -132,12 +147,15 @@ export function FullscreenDisplayDialog({
     }
   }, [displayType, densityData, imageUrl, title, timestamp, plotRef]);
 
-  // Create density plot data
+  // Create density plot data with enhanced colorscale and dynamic range
   const getDensityPlotData = () => {
     if (!densityData) return null;
     
     const dataHeight = densityData.length;
     const dataWidth = densityData[0]?.length || 0;
+    
+    // Calculate actual min/max from data
+    const { min: dataMin, max: dataMax } = getDataRange(densityData);
     
     let physicalWidth = dataWidth;
     let physicalHeight = dataHeight;
@@ -155,8 +173,9 @@ export function FullscreenDisplayDialog({
     const xCoords = Array.from({ length: dataWidth }, (_, i) =>
       xOffset + (i * (physicalWidth / dataWidth))
     );
+    // Flip Y coordinates to match image orientation (Y=0 at top)
     const yCoords = Array.from({ length: dataHeight }, (_, i) =>
-      yOffset + (i * (physicalHeight / dataHeight))
+      yOffset + ((dataHeight - 1 - i) * (physicalHeight / dataHeight))
     );
     
     return [{
@@ -164,14 +183,20 @@ export function FullscreenDisplayDialog({
       x: xCoords,
       y: yCoords,
       type: 'heatmap',
+      // Enhanced colorscale with better visual distinction (same as DensityDisplay)
       colorscale: [
-        [0, 'rgb(101, 227, 5)'],
-        [0.5, 'rgb(250, 238, 65)'],
-        [1, 'rgb(237, 61, 7)']
+        [0, 'rgb(5, 48, 97)'],      // Dark blue (lowest density)
+        [0.2, 'rgb(33, 102, 172)'], // Medium blue
+        [0.4, 'rgb(67, 147, 195)'], // Light blue
+        [0.6, 'rgb(146, 197, 222)'], // Very light blue
+        [0.7, 'rgb(209, 229, 240)'], // Almost white
+        [0.8, 'rgb(253, 219, 199)'], // Light orange
+        [0.9, 'rgb(244, 165, 130)'], // Medium orange
+        [1, 'rgb(214, 96, 77)']     // Dark red (highest density)
       ],
-      zmin: 0,
-      zmax: 2,
-      hovertemplate: 'X: %{x:.1f}m<br>Y: %{y:.1f}m<br>Density: %{z:.2f}/m²<extra></extra>',
+      zmin: dataMin,
+      zmax: dataMax,
+      hovertemplate: 'X: %{x:.1f}m<br>Y: %{y:.1f}m<br>Density: %{z:.3f}/m²<extra></extra>',
       showscale: true,
       colorbar: {
         title: {
@@ -180,7 +205,8 @@ export function FullscreenDisplayDialog({
         },
         tickfont: { color: '#374151', size: 14 },
         len: 0.8,
-        thickness: 25
+        thickness: 25,
+        tickformat: '.3f'
       }
     }];
   };
@@ -224,8 +250,17 @@ export function FullscreenDisplayDialog({
     };
   };
 
+  // Calculate density range for footer display
+  const getDensityRange = () => {
+    if (!densityData) return null;
+    const { min, max } = getDataRange(densityData);
+    return { min, max };
+  };
+
   // Don't render if not open
   if (!isOpen) return null;
+
+  const densityRange = getDensityRange();
 
   return (
     <>
@@ -315,7 +350,7 @@ export function FullscreenDisplayDialog({
           </div>
         </div>
         
-        {/* Optional Footer */}
+        {/* Enhanced Footer with density range info */}
         {(heatmapConfig || densityData) && (
           <div className="bg-gray-50 border-t px-4 py-2 text-xs text-gray-500 shrink-0">
             {heatmapConfig && (
@@ -324,9 +359,16 @@ export function FullscreenDisplayDialog({
               </span>
             )}
             {densityData && (
-              <span>
-                Resolution: {densityData[0]?.length || 0} × {densityData.length} points
-              </span>
+              <>
+                <span className="mr-4">
+                  Resolution: {densityData[0]?.length || 0} × {densityData.length} points
+                </span>
+                {densityRange && (
+                  <span>
+                    Density range: {densityRange.min.toFixed(3)} - {densityRange.max.toFixed(3)} people/m²
+                  </span>
+                )}
+              </>
             )}
           </div>
         )}
