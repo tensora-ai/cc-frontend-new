@@ -51,17 +51,25 @@ export function DensityDisplay({
     items: CoordinatePoint[], 
     dateStr: string, 
     crop?: [number, number, number, number]
-  ): number[][] => {
-    let l: number, t: number, r: number, b: number;
-    
-    if (crop) {
-      [l, t, r, b] = crop;
-    } else {
-      l = Math.min(...items.map(x => x[0]));
-      t = Math.min(...items.map(x => x[1]));
-      r = Math.max(...items.map(x => x[0])) + 1;
-      b = Math.max(...items.map(x => x[1])) + 1;
+  ): { array: number[][], bounds: { minX: number, maxX: number, minY: number, maxY: number } } => {
+    if (items.length === 0) {
+      return { 
+        array: [[0]], 
+        bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1 } 
+      };
     }
+
+    // Find the actual bounds of the filtered data points
+    const actualMinX = Math.min(...items.map(x => x[0]));
+    const actualMaxX = Math.max(...items.map(x => x[0]));
+    const actualMinY = Math.min(...items.map(x => x[1]));
+    const actualMaxY = Math.max(...items.map(x => x[1]));
+
+    // Use actual bounds instead of crop bounds for array creation
+    const l = Math.floor(actualMinX);
+    const r = Math.ceil(actualMaxX) + 1;
+    const t = Math.floor(actualMinY);
+    const b = Math.ceil(actualMaxY) + 1;
 
     // Date-specific meter conversion (from old frontend)
     const meterConversion = (dateStr === "2024-08-01" || dateStr === "2024-07-31") ? 2 : 1;
@@ -90,7 +98,15 @@ export function DensityDisplay({
       }
     }
 
-    return array;
+    return { 
+      array, 
+      bounds: { 
+        minX: l, 
+        maxX: r, 
+        minY: t, 
+        maxY: b 
+      } 
+    };
   };
 
   // Calculate min/max values from the actual data
@@ -172,14 +188,17 @@ export function DensityDisplay({
         // Extract date from timestamp for meter conversion logic
         const dateStr = timestamp.split('T')[0];
         
-        // Convert coordinates to 2D array
-        const densityArray = convertToArray(processedCoords, dateStr, heatmapConfig);
+        // Convert coordinates to 2D array and get actual bounds
+        const { array: densityArray, bounds } = convertToArray(processedCoords, dateStr, heatmapConfig);
         
         console.log("📊 Converted array dimensions:", densityArray.length, "x", densityArray[0]?.length);
+        console.log("📊 Actual data bounds:", bounds);
         
-        const densityResponse: DensityResponse = {
+        const densityResponse: DensityResponse & { bounds?: any } = {
           data: densityArray,
-          timestamp: timestamp
+          timestamp: timestamp,
+          // Store bounds for coordinate calculation
+          bounds: bounds
         };
         setDensityResponse(densityResponse);
         
@@ -247,41 +266,45 @@ export function DensityDisplay({
   const data = densityResponse.data;
   const dataHeight = data.length;
   const dataWidth = data[0]?.length || 0;
+  const bounds = (densityResponse as any).bounds;
 
   // Calculate actual min/max from data
   const { min: dataMin, max: dataMax } = getDataRange(data);
 
-  // Calculate physical dimensions and coordinates (matching old frontend logic)
-  let physicalWidth = dataWidth;
-  let physicalHeight = dataHeight;
-  let xOffset = 0;
-  let yOffset = 0;
-
-  if (heatmapConfig && heatmapConfig.length === 4) {
-    const [left, top, right, bottom] = heatmapConfig;
-    physicalWidth = right - left;
-    physicalHeight = bottom - top;
-    xOffset = left;
-    yOffset = top;
-  }
-
-  // Create coordinate arrays matching the old frontend
+  // Create coordinate arrays that ONLY span the actual data bounds
   const xCoords = Array.from({ length: dataWidth }, (_, i) =>
-    xOffset + (i * (physicalWidth / dataWidth))
+    bounds.minX + (i * ((bounds.maxX - bounds.minX) / dataWidth))
   );
   
   // Y coordinates - match the old frontend logic with origin="lower"
   const yCoords = Array.from({ length: dataHeight }, (_, i) =>
-    yOffset + ((dataHeight - 1 - i) * (physicalHeight / dataHeight))
+    bounds.minY + ((dataHeight - 1 - i) * ((bounds.maxY - bounds.minY) / dataHeight))
   );
 
-  // Use viridis colorscale to match old frontend (they commented out custom scale)
+  // Use the actual coordinate ranges (no extra bounds calculation needed)
+  const xRange = [Math.min(...xCoords), Math.max(...xCoords)];
+  const yRange = [Math.min(...yCoords), Math.max(...yCoords)];
+
+  console.log("Range for X coordinates:", xRange);
+  console.log("Range for Y coordinates:", yRange);
+
+  // Use a blue-yellow/green colorscale similar to the screenshot
+  // Custom colorscale that goes from blue to yellow/green
+  const customColorscale = [
+    [0.0, '#0d47a1'],   // Dark blue
+    [0.2, '#1976d2'],   // Medium blue  
+    [0.4, '#42a5f5'],   // Light blue
+    [0.6, '#66bb6a'],   // Green
+    [0.8, '#9ccc65'],   // Light green
+    [1.0, '#ffeb3b']    // Yellow
+  ];
+
   const plotData = [{
     z: data,
     x: xCoords,
     y: yCoords,
     type: 'heatmap',
-    colorscale: 'viridis', // Match old frontend
+    colorscale: customColorscale,
     zmin: 0,  // Match old frontend (zmin=0)
     zmax: 7,  // Match old frontend (zmax=7)
     hovertemplate: 'X: %{x:.1f}m<br>Y: %{y:.1f}m<br>Density: %{z:.3f}/m²<extra></extra>',
@@ -293,32 +316,34 @@ export function DensityDisplay({
       },
       tickfont: { color: '#808080' },
       len: 0.8,
-      tickformat: '.3f'
+      tickformat: '.0f' // Remove decimal places (6.000 -> 6)
     }
   }];
 
   const layout = {
     title: '',
     xaxis: {
-      title: 'Distance (meters)', // Match old frontend
+      title: 'Distance (meters)',
       tickfont: { color: '#808080' },
       titlefont: { color: '#808080' },
       showgrid: false,
-      zeroline: false
+      zeroline: false,
+      range: xRange // Use actual coordinate range
     },
     yaxis: {
-      title: 'Distance (meters)', // Match old frontend
+      title: 'Distance (meters)',
       tickfont: { color: '#808080' },
       titlefont: { color: '#808080' },
       showgrid: false,
       zeroline: false,
       scaleanchor: 'x',
-      scaleratio: 1
+      scaleratio: 1,
+      range: yRange // Use actual coordinate range
     },
     margin: { l: 60, r: 60, t: 10, b: 60 },
-    paper_bgcolor: 'rgba(0,0,0,0)', // Match old frontend
-    plot_bgcolor: 'rgba(0,0,0,0)',  // Match old frontend
-    font: { color: '#808080' }      // Match old frontend
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { color: '#808080' }
   };
 
   return (
@@ -343,7 +368,7 @@ export function DensityDisplay({
 
       <div className="mt-2 text-xs text-gray-500 space-y-1">
         <div>Captured: {formatUtcToLocalDisplay(timestamp)}</div>
-        <div>Dimensions: {physicalWidth}m × {physicalHeight}m</div>
+        <div>Dimensions: {(bounds.maxX - bounds.minX).toFixed(1)}m × {(bounds.maxY - bounds.minY).toFixed(1)}m</div>
         <div>Density range: {dataMin.toFixed(3)} - {dataMax.toFixed(3)} people/m²</div>
         {heatmapConfig && (
           <div>Crop area: [{heatmapConfig.join(', ')}] meters</div>

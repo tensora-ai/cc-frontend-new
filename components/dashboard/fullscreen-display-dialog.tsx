@@ -157,53 +157,73 @@ export function FullscreenDisplayDialog({
     // Calculate actual min/max from data
     const { min: dataMin, max: dataMax } = getDataRange(densityData);
     
-    let physicalWidth = dataWidth;
-    let physicalHeight = dataHeight;
-    let xOffset = 0;
-    let yOffset = 0;
-    
+    // We need to determine the actual bounds of the density data
+    // Since we don't have the original coordinate data here, we'll work with heatmapConfig
+    let bounds;
     if (heatmapConfig && heatmapConfig.length === 4) {
       const [left, top, right, bottom] = heatmapConfig;
-      physicalWidth = right - left;
-      physicalHeight = bottom - top;
-      xOffset = left;
-      yOffset = top;
+      bounds = { minX: left, maxX: right, minY: top, maxY: bottom };
+    } else {
+      // Fallback bounds - this might not be perfect but better than before
+      bounds = { minX: 0, maxX: dataWidth, minY: 0, maxY: dataHeight };
     }
     
+    // Create coordinate arrays that ONLY span the actual data bounds
     const xCoords = Array.from({ length: dataWidth }, (_, i) =>
-      xOffset + (i * (physicalWidth / dataWidth))
+      bounds.minX + (i * ((bounds.maxX - bounds.minX) / dataWidth))
     );
     // Y coordinates matching old frontend logic
     const yCoords = Array.from({ length: dataHeight }, (_, i) =>
-      yOffset + ((dataHeight - 1 - i) * (physicalHeight / dataHeight))
+      bounds.minY + ((dataHeight - 1 - i) * ((bounds.maxY - bounds.minY) / dataHeight))
     );
+
+    // Store bounds for layout function - use actual coordinate ranges
+    (getDensityPlotData as any).dataBounds = {
+      xRange: [Math.min(...xCoords), Math.max(...xCoords)],
+      yRange: [Math.min(...yCoords), Math.max(...yCoords)]
+    };
+
+    // Use a blue-yellow/green colorscale similar to the screenshot
+    const customColorscale = [
+      [0.0, '#0d47a1'],   // Dark blue
+      [0.2, '#1976d2'],   // Medium blue  
+      [0.4, '#42a5f5'],   // Light blue
+      [0.6, '#66bb6a'],   // Green
+      [0.8, '#9ccc65'],   // Light green
+      [1.0, '#ffeb3b']    // Yellow
+    ];
     
     return [{
       z: densityData,
       x: xCoords,
       y: yCoords,
       type: 'heatmap',
-      // Use viridis colorscale to match old frontend
-      colorscale: 'viridis',
+      colorscale: customColorscale,
       zmin: 0,  // Match old frontend (zmin=0)
       zmax: 7,  // Match old frontend (zmax=7)
       hovertemplate: 'X: %{x:.1f}m<br>Y: %{y:.1f}m<br>Density: %{z:.3f}/m²<extra></extra>',
       showscale: true,
       colorbar: {
         title: {
-          text: 'density in sqm', // Match old frontend label
+          text: 'density in sqm',
           font: { color: '#374151', size: 16 }
         },
         tickfont: { color: '#374151', size: 14 },
         len: 0.8,
         thickness: 25,
-        tickformat: '.3f'
+        tickformat: '.0f' // Remove decimal places (6.000 -> 6)
       }
     }];
   };
   
   // Get density plot layout
   const getDensityPlotLayout = () => {
+    // Get the bounds calculated in getDensityPlotData
+    const bounds = (getDensityPlotData as any).dataBounds || {
+      xRange: [0, 50],
+      yRange: [0, 30]
+    };
+
     return {
       title: {
         text: '',
@@ -211,25 +231,27 @@ export function FullscreenDisplayDialog({
       },
       xaxis: {
         title: {
-          text: 'Distance (meters)', // Match old frontend
+          text: 'Distance (meters)',
           font: { size: 16, color: '#374151' }
         },
         tickfont: { color: '#374151', size: 14 },
-        showgrid: false, // Match old frontend
+        showgrid: false,
         gridcolor: 'rgba(156, 163, 175, 0.3)',
-        zeroline: false
+        zeroline: false,
+        range: bounds.xRange // Use actual coordinate range
       },
       yaxis: {
         title: {
-          text: 'Distance (meters)', // Match old frontend
+          text: 'Distance (meters)',
           font: { size: 16, color: '#374151' }
         },
         tickfont: { color: '#374151', size: 14 },
-        showgrid: false, // Match old frontend
+        showgrid: false,
         gridcolor: 'rgba(156, 163, 175, 0.3)',
         zeroline: false,
         scaleanchor: 'x',
-        scaleratio: 1
+        scaleratio: 1,
+        range: bounds.yRange // Use actual coordinate range
       },
       margin: { l: 80, r: 100, t: 20, b: 80 },
       paper_bgcolor: 'rgba(255,255,255,1)',
