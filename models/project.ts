@@ -118,7 +118,7 @@ export interface CameraConfigCreate {
   heatmap_config?: HeatmapConfig;
   enable_interpolation: boolean;
   enable_masking: boolean;
-  masking_edges?: Edge[];
+  masking_config?: MaskingConfig;
 }
 
 export interface CameraConfigUpdate {
@@ -129,5 +129,5 @@ export interface CameraConfigUpdate {
   heatmap_config?: HeatmapConfig;
   enable_interpolation: boolean;
   enable_masking: boolean;
-  masking_edges?: Edge[];
+  masking_config?: MaskingConfig;
 }

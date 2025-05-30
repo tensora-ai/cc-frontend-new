@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Camera, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Project, Edge, CountingModel, ModelSchedule, Position, CameraConfig, CameraConfigCreate, CameraConfigUpdate } from "@/models/project";
+import { Project, Edge, CountingModel, ModelSchedule, Position, CameraConfig, CameraConfigCreate, CameraConfigUpdate, MaskingConfig } from "@/models/project";
 import { apiClient } from "@/lib/api-client";
 
 // Import our custom components
@@ -290,6 +290,11 @@ export default function ProjectDetailPage() {
     if (!project) return;
     
     try {
+
+      const masking_config: MaskingConfig = {
+        edges: maskingEdges || []
+      }
+
       // Create new camera configuration
       const newConfig: CameraConfigCreate = {
         id: id,
@@ -300,7 +305,7 @@ export default function ProjectDetailPage() {
         heatmap_config: heatmapConfig,
         enable_interpolation: enableInterpolation,
         enable_masking: enableMasking,
-        masking_edges: enableMasking ? maskingEdges : undefined
+        masking_config: masking_config
       };
       
       // Call API client to add camera configuration
@@ -330,6 +335,11 @@ export default function ProjectDetailPage() {
     if (!project) return;
     
     try {
+
+      const masking_config: MaskingConfig = {
+        edges: maskingEdges || []
+      }
+
       // Create updated camera configuration
       const updatedConfig: CameraConfigUpdate = {
         name: configName,
@@ -339,7 +349,7 @@ export default function ProjectDetailPage() {
         heatmap_config: heatmapConfig,
         enable_interpolation: enableInterpolation,
         enable_masking: enableMasking,
-        masking_edges: enableMasking && maskingEdges ? maskingEdges : undefined
+        masking_config: masking_config
       };
       
       // Call API client to update camera configuration
