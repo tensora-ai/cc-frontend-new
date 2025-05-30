@@ -18,7 +18,7 @@ import { StatsPanel } from "@/components/dashboard/stats-panel";
 import { CrowdGraph } from "@/components/dashboard/crowd-graph";
 import { ImageDisplay } from "@/components/dashboard/image-display";
 import { HeatmapDisplay } from "@/components/dashboard/heatmap-display";
-import { DensityDisplay } from "@/components/dashboard/density-display";
+import { UnifiedDensityDisplay } from "@/components/dashboard/unified-density-display";
 
 // Import types
 import { Project, CameraConfig } from "@/models/project";
@@ -27,7 +27,6 @@ import {
   TimeSeriesPoint, 
   CameraTimestamp 
 } from "@/models/dashboard";
-import { set } from "date-fns";
 
 // Dashboard states
 type DashboardState = 'initial' | 'loading' | 'success' | 'error' | 'empty';
@@ -488,7 +487,7 @@ export default function DashboardPage() {
           </h3>
           
           {cameraTimestamp ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Camera Image Panel */}
               <div className="bg-white rounded-lg border p-4">
                 <h4 className="text-md font-medium mb-3">Camera View</h4>
@@ -513,18 +512,7 @@ export default function DashboardPage() {
                 />
               </div>
               
-              {/* Density Panel */}
-              <div className="bg-white rounded-lg border p-4">
-                <h4 className="text-md font-medium mb-3">m²-Density</h4>
-                <DensityDisplay
-                  key={`density-${config.id}-${cameraTimestamp}`}
-                  projectId={projectId}
-                  cameraId={config.camera_id}
-                  positionId={config.position.name}
-                  timestamp={cameraTimestamp}
-                  heatmapConfig={config.heatmap_config}
-                />
-              </div>
+              {/* Note: Individual density panels removed - now using unified display */}
             </div>
           ) : (
             <div className="bg-amber-50 border border-amber-200 text-amber-700 p-4 rounded">
@@ -556,33 +544,77 @@ export default function DashboardPage() {
       />
       
       {/* Show content based on dashboard state */}
-      {dashboardState !== 'initial' && (
-        <>
-          {/* Stats Panel - only show with valid data, positioned above graph */}
-          {hasValidData && (
-            <div className="bg-white rounded-lg border p-4 shadow-sm">
-              <h2 className="text-lg font-medium mb-4">Statistics Overview</h2>
-              <StatsPanel 
-                current={stats.current}
-                maximum={stats.maximum}
-                average={stats.average}
-                minimum={stats.minimum}
-              />
+      {dashboardState === 'loading' && (
+        <div className="bg-white rounded-lg border p-8 shadow-sm">
+          <div className="flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--tensora-medium)] mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading prediction data...</p>
             </div>
-          )}
+          </div>
+        </div>
+      )}
+
+      {/* No Data Available State */}
+      {(dashboardState === 'empty' || dashboardState === 'error') && (
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-8 shadow-sm">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-100 mb-4">
+              <AlertCircle className="h-8 w-8 text-amber-600" />
+            </div>
+            <h3 className="text-lg font-medium text-amber-800 mb-2">
+              {dashboardState === 'empty' ? 'No Data Available' : 'Data Loading Error'}
+            </h3>
+            <p className="text-amber-700 mb-4 max-w-md mx-auto">
+              {dataError || "No prediction data found for the selected time range and area."}
+            </p>
+            <div className="text-sm text-amber-600 space-y-1">
+              <p>• Try expanding the time range (increase lookback hours)</p>
+              <p>• Select a different date with available data</p>
+              <p>• Ensure cameras in this area have generated predictions</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Data Available - Show all dashboard components */}
+      {hasValidData && (
+        <>
+          {/* Stats Panel */}
+          <div className="bg-white rounded-lg border p-4 shadow-sm">
+            <h2 className="text-lg font-medium mb-4">Statistics Overview</h2>
+            <StatsPanel 
+              current={stats.current}
+              maximum={stats.maximum}
+              average={stats.average}
+              minimum={stats.minimum}
+            />
+          </div>
           
           {/* Crowd Graph */}
           <div className="bg-white rounded-lg border p-4 shadow-sm">
             <h2 className="text-lg font-medium mb-4">Crowd Count</h2>
             <CrowdGraph 
               data={timeSeriesData} 
-              isLoading={dashboardState === 'loading'}
+              isLoading={false}
               onPointClick={handleGraphPointClick}
               error={dataError}
             />
           </div>
           
-          {/* Camera Configuration Panels - no hasValidData check here */}
+          {/* Unified Density Display */}
+          <div className="bg-white rounded-lg border p-4 shadow-sm">
+            <h2 className="text-lg font-medium mb-4">Unified Density Map</h2>
+            <UnifiedDensityDisplay
+              projectId={projectId}
+              areaId={area.id}
+              timestamp={clickedTimestamp || formatUtcDateToIsoString(selectedDate)}
+              cameraConfigs={area.camera_configs}
+              cameraTimestamps={cameraTimestamps}
+            />
+          </div>
+          
+          {/* Camera Configuration Panels */}
           {renderCameraConfigPanels(area.camera_configs)}
         </>
       )}
