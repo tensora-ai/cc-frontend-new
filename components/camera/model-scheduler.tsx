@@ -214,8 +214,8 @@ export function ModelScheduler({
                                             <SelectValue placeholder="Select a model" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value={CountingModel.Model0725}>Standard (model_0725.pth)</SelectItem>
-                                            <SelectItem value={CountingModel.ModelNWPU}>Low Light (model_nwpu.pth)</SelectItem>
+                                            <SelectItem value={CountingModel.ModelNWPU}>Standard (model_nwpu.pth)</SelectItem>
+                                            <SelectItem value={CountingModel.Model0725}>Low Light (model_0725.pth)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
