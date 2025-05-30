@@ -205,7 +205,7 @@ export function FullscreenDisplayDialog({
       showscale: true,
       colorbar: {
         title: {
-          text: 'density in sqm',
+          text: 'people/m²',
           font: { color: '#374151', size: 16 }
         },
         tickfont: { color: '#374151', size: 14 },
