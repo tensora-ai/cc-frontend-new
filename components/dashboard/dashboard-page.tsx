@@ -27,6 +27,7 @@ import {
   TimeSeriesPoint, 
   CameraTimestamp 
 } from "@/models/dashboard";
+import { set } from "date-fns";
 
 // Dashboard states
 type DashboardState = 'initial' | 'loading' | 'success' | 'error' | 'empty';
@@ -202,6 +203,8 @@ export default function DashboardPage() {
       setDashboardState('loading');
       setDataError(null);
       setClickedTimestamp(null);
+      setTimeSeriesData([]); // Clear previous data
+      setCameraTimestamps([]); // Clear previous camera timestamps
       setCameraConfigTimestamps({}); // Reset pre-calculated timestamps
       
       // Convert local time to UTC for API request
@@ -266,13 +269,14 @@ export default function DashboardPage() {
     setLiveMode(enabled);
     
     if (enabled) {
+      console.log("🔴 Live mode enabled");
+
       // When enabling live mode, update to current time and fetch latest data
       setSelectedDate(getLocalNow());
       setClickedTimestamp(null);
-      // Immediately fetch data
-      setTimeout(() => {
-        handleApplySettings();
-      }, 100);
+      
+      handleApplySettings();
+      
       // Reset countdown
       setLiveModeCountdown(30);
     } else {
