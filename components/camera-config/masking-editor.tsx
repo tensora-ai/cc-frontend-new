@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Check, X, Save, Trash, Upload, Info, Image } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Check, X, Save, Trash, Upload, Info, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Edge } from "@/models/project";
 
@@ -78,97 +78,8 @@ export function MaskingEditor({
     }
   }, [initialEdges, resolution]);
 
-  // Redraw the canvas when relevant state changes
-  useEffect(() => {
-    if (!canvasRef.current || !isOpen) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    
-    if (!ctx) return;
-    
-    // Clear the canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw background image if available
-    if (backgroundImage) {
-      ctx.globalAlpha = 1.0;
-      ctx.drawImage(
-        backgroundImage, 
-        0, 0, 
-        canvas.width, 
-        canvas.height
-      );
-      
-      // Add semi-transparent overlay for better contrast if enabled
-      if (showOverlay) {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-    } else {
-      // Draw a grid background to visualize the area if no background image
-      drawGrid(ctx);
-    }
-    
-    // Draw the polygon
-    if (edges.length > 0) {
-      drawPolygon(ctx);
-    }
-    
-    // Draw border
-    ctx.strokeStyle = "#aaa";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw scale indicator in bottom right corner
-    drawScaleIndicator(ctx);
-    
-  }, [edges, dragIndex, canvasSize, backgroundImage, showOverlay, scaleFactor, isOpen]);
-
-  // Add document-wide event listeners for mouse up and mouse move
-  useEffect(() => {
-    // Only add listeners if we're in dragging mode
-    if (dragIndex !== null) {
-      const handleDocumentMouseUp = () => {
-        setDragIndex(null);
-      };
-      
-      const handleDocumentMouseMove = (e: MouseEvent) => {
-        if (!canvasRef.current) return;
-        
-        const canvas = canvasRef.current;
-        const rect = canvas.getBoundingClientRect();
-        
-        // Calculate position relative to canvas
-        let x = e.clientX - rect.left;
-        let y = e.clientY - rect.top;
-        
-        // Clamp mouse position to canvas bounds
-        x = Math.max(0, Math.min(canvas.width, x));
-        y = Math.max(0, Math.min(canvas.height, y));
-        
-        // Convert to original resolution and update point
-        const [originalX, originalY] = canvasToOriginalCoords(x, y);
-        
-        const newEdges = [...edges];
-        newEdges[dragIndex] = [originalX, originalY];
-        setEdges(newEdges);
-      };
-      
-      // Add document-wide event listeners
-      document.addEventListener('mouseup', handleDocumentMouseUp);
-      document.addEventListener('mousemove', handleDocumentMouseMove);
-      
-      // Clean up
-      return () => {
-        document.removeEventListener('mouseup', handleDocumentMouseUp);
-        document.removeEventListener('mousemove', handleDocumentMouseMove);
-      };
-    }
-  }, [dragIndex, edges, resolution, scaleFactor]);
-
-  // Helper function to draw the grid
-  const drawGrid = (ctx: CanvasRenderingContext2D) => {
+  // Helper function to draw the grid - memoized with useCallback
+  const drawGrid = useCallback((ctx: CanvasRenderingContext2D) => {
     const gridSize = 50; // Grid size in original resolution
     const scaledGridSizeX = gridSize * scaleFactor;
     const scaledGridSizeY = gridSize * scaleFactor;
@@ -191,10 +102,10 @@ export function MaskingEditor({
       ctx.lineTo(canvasSize.width, y);
       ctx.stroke();
     }
-  };
+  }, [canvasSize.height, canvasSize.width, scaleFactor]);
 
-  // Helper function to draw the polygon
-  const drawPolygon = (ctx: CanvasRenderingContext2D) => {
+  // Helper function to draw the polygon - memoized with useCallback
+  const drawPolygon = useCallback((ctx: CanvasRenderingContext2D) => {
     if (edges.length === 0) return;
     
     ctx.beginPath();
@@ -248,10 +159,10 @@ export function MaskingEditor({
       ctx.textBaseline = "middle";
       ctx.fillText(index.toString(), x, y);
     });
-  };
+  }, [edges, dragIndex, scaleFactor]);
 
-  // Helper function to draw the scale indicator
-  const drawScaleIndicator = (ctx: CanvasRenderingContext2D) => {
+  // Helper function to draw the scale indicator - memoized with useCallback
+  const drawScaleIndicator = useCallback((ctx: CanvasRenderingContext2D) => {
     const padding = 10;
     const scaleText = `Scale: ${Math.round(scaleFactor * 100)}% (1:${(1/scaleFactor).toFixed(1)})`;
     const resolutionText = `${resolution[0]}×${resolution[1]}px`;
@@ -287,10 +198,57 @@ export function MaskingEditor({
       canvasSize.width - padding - 5, 
       canvasSize.height - padding - 5
     );
-  };
+  }, [canvasSize.width, canvasSize.height, scaleFactor, resolution]);
+
+  // Redraw the canvas when relevant state changes
+  useEffect(() => {
+    if (!canvasRef.current || !isOpen) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    
+    if (!ctx) return;
+    
+    // Clear the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw background image if available
+    if (backgroundImage) {
+      ctx.globalAlpha = 1.0;
+      ctx.drawImage(
+        backgroundImage, 
+        0, 0, 
+        canvas.width, 
+        canvas.height
+      );
+      
+      // Add semi-transparent overlay for better contrast if enabled
+      if (showOverlay) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+    } else {
+      // Draw a grid background to visualize the area if no background image
+      drawGrid(ctx);
+    }
+    
+    // Draw the polygon
+    if (edges.length > 0) {
+      drawPolygon(ctx);
+    }
+    
+    // Draw border
+    ctx.strokeStyle = "#aaa";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw scale indicator in bottom right corner
+    drawScaleIndicator(ctx);
+    
+  }, [edges, dragIndex, canvasSize, backgroundImage, showOverlay, scaleFactor, isOpen, drawGrid, drawPolygon, drawScaleIndicator]);
 
   // Convert canvas coordinates to original resolution coordinates
-  const canvasToOriginalCoords = (
+  const canvasToOriginalCoords = useCallback((
     canvasX: number, 
     canvasY: number
   ): [number, number] => {
@@ -303,7 +261,49 @@ export function MaskingEditor({
       Math.max(0, Math.min(resolution[0], originalX)),
       Math.max(0, Math.min(resolution[1], originalY))
     ];
-  };
+  }, [resolution, scaleFactor]);
+
+  // Add document-wide event listeners for mouse up and mouse move
+  useEffect(() => {
+    // Only add listeners if we're in dragging mode
+    if (dragIndex !== null) {
+      const handleDocumentMouseUp = () => {
+        setDragIndex(null);
+      };
+      
+      const handleDocumentMouseMove = (e: MouseEvent) => {
+        if (!canvasRef.current) return;
+        
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        
+        // Calculate position relative to canvas
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        
+        // Clamp mouse position to canvas bounds
+        x = Math.max(0, Math.min(canvas.width, x));
+        y = Math.max(0, Math.min(canvas.height, y));
+        
+        // Convert to original resolution and update point
+        const [originalX, originalY] = canvasToOriginalCoords(x, y);
+        
+        const newEdges = [...edges];
+        newEdges[dragIndex] = [originalX, originalY];
+        setEdges(newEdges);
+      };
+      
+      // Add document-wide event listeners
+      document.addEventListener('mouseup', handleDocumentMouseUp);
+      document.addEventListener('mousemove', handleDocumentMouseMove);
+      
+      // Clean up
+      return () => {
+        document.removeEventListener('mouseup', handleDocumentMouseUp);
+        document.removeEventListener('mousemove', handleDocumentMouseMove);
+      };
+    }
+  }, [dragIndex, edges, canvasToOriginalCoords]);
   
   // Find if we're clicking near a vertex (for dragging)
   const findNearbyVertex = (
@@ -414,12 +414,6 @@ export function MaskingEditor({
       setEdges(newEdges);
     }
   };
-  
-  // We no longer need these canvas-specific handlers since we're using document-wide event listeners
-  // when dragging, but we still declare empty functions to keep the component interface consistent
-  const handleMouseMove = () => {};
-  const handleMouseUp = () => {};
-  const handleMouseLeave = () => {};
 
   // Handle right-click to delete vertex
   const handleContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -454,7 +448,7 @@ export function MaskingEditor({
     
     // Load the image
     const reader = new FileReader();
-    reader.onload = (event: ProgressEvent<FileReader>) => {
+    reader.onload = () => {
       // Use the window.Image constructor to avoid TypeScript errors
       const img = new window.Image();
       img.onload = () => {
@@ -579,7 +573,7 @@ export function MaskingEditor({
                   onClick={handleToggleOverlay}
                   className="flex items-center"
                 >
-                  <Image className="h-3.5 w-3.5 mr-1.5" />
+                  <ImageIcon className="h-3.5 w-3.5 mr-1.5" />
                   {showOverlay ? "Remove Contrast" : "Add Contrast"}
                 </Button>
               )}

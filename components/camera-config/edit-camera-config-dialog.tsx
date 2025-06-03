@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Camera, MapPin, Edit, BarChart } from "lucide-react";
+import { CameraIcon, MapPin, Edit } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,16 +12,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Camera as CameraType, Edge, Position } from "@/models/project";
+import { Camera, Edge, Position } from "@/models/project";
 import { MaskingEditor } from "@/components/camera-config/masking-editor";
 
 interface EditCameraConfigDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate: (
+    configId: string,     
+    configName: string,   
     cameraId: string,
-    originalPosition: string,
     position: Position,
     enableHeatmap: boolean,
     enableInterpolation: boolean,
@@ -30,6 +38,8 @@ interface EditCameraConfigDialogProps {
     heatmapConfig?: [number, number, number, number],
   ) => void;
   config: {
+    id: string;          
+    name: string;         
     cameraId: string;
     position: Position;
     enableHeatmap: boolean;
@@ -41,7 +51,8 @@ interface EditCameraConfigDialogProps {
       edges: Edge[];
     };
   } | null;
-  availableCamera: CameraType | null;
+  availableCamera: Camera | null;
+  availableCameras: Camera[];
 }
 
 export function EditCameraConfigDialog({
@@ -49,9 +60,13 @@ export function EditCameraConfigDialog({
   onClose,
   onUpdate,
   config,
-  availableCamera
+  availableCamera,
+  availableCameras
 }: EditCameraConfigDialogProps) {
   // Form state
+  const [id, setId] = useState<string>("");
+  const [name, setName] = useState<string>("");
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
   const [positionName, setPositionName] = useState<string>("");
   const [centerGroundPlaneX, setCenterGroundPlaneX] = useState<string>("");
   const [centerGroundPlaneY, setCenterGroundPlaneY] = useState<string>("");
@@ -68,11 +83,10 @@ export function EditCameraConfigDialog({
   const [maskingEdges, setMaskingEdges] = useState<Edge[]>([]);
   const [maskingEditorOpen, setMaskingEditorOpen] = useState<boolean>(false);
   
-  // Store original position name for update logic
-  const [originalPositionName, setOriginalPositionName] = useState<string>("");
-  
   // Validation state
   const [errors, setErrors] = useState<{
+    name?: string;
+    camera?: string;
     position?: string;
     centerGroundPlane?: string;
     focalLength?: string;
@@ -83,8 +97,10 @@ export function EditCameraConfigDialog({
   useEffect(() => {
     if (config && availableCamera) {
       // Set position data
-      setPositionName(config.position.name);
-      setOriginalPositionName(config.position.name);
+      setId(config.id || "");
+      setName(config.name || "");
+      setSelectedCameraId(config.cameraId || "");
+      setPositionName(config.position.name || "");
       
       if (config.position.center_ground_plane) {
         setCenterGroundPlaneX(config.position.center_ground_plane[0].toString());
@@ -139,18 +155,28 @@ export function EditCameraConfigDialog({
 
   // Handle form submission
   const handleSubmit = () => {
-    if (!config || !availableCamera) return;
+    if (!config) return;
     
     // Reset errors
     setErrors({});
     
     // Validate form
     const newErrors: {
+      name?: string;
+      camera?: string;
       position?: string;
       centerGroundPlane?: string;
       focalLength?: string;
       heatmap?: string;
     } = {};
+    
+    if (!name.trim()) {
+      newErrors.name = "Configuration name is required";
+    }
+    
+    if (!selectedCameraId) {
+      newErrors.camera = "Camera selection is required";
+    }
     
     if (!positionName.trim()) {
       newErrors.position = "Camera position name is required";
@@ -229,15 +255,15 @@ export function EditCameraConfigDialog({
     
     // Submit the form
     onUpdate(
-      config.cameraId,
-      originalPositionName,
+      config.id,
+      name,
+      selectedCameraId,
       position,
       enableHeatmap,
-     
       enableInterpolation,
       enableMasking,
       enableMasking ? maskingEdges : undefined,
-       heatmapConfig ? heatmapConfig : undefined,
+      heatmapConfig ? heatmapConfig : undefined,
     );
     
     // Close dialog
@@ -246,7 +272,7 @@ export function EditCameraConfigDialog({
   
   // Handle opening masking editor
   const handleOpenMaskingEditor = () => {
-    if (!availableCamera) return;
+    if (!selectedCameraId) return;
     setMaskingEditorOpen(true);
   };
   
@@ -256,12 +282,15 @@ export function EditCameraConfigDialog({
     setMaskingEditorOpen(false);
   };
 
+  // Get the current selected camera
+  const currentCamera = availableCameras.find(cam => cam.id === selectedCameraId);
+
   return (
     <Dialog open={isOpen && !maskingEditorOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center">
-            <Camera className="mr-2 h-5 w-5 text-[var(--tensora-medium)]" />
+            <CameraIcon className="mr-2 h-5 w-5 text-[var(--tensora-medium)]" />
             Edit Camera Configuration
           </DialogTitle>
           <DialogDescription>
@@ -269,7 +298,7 @@ export function EditCameraConfigDialog({
           </DialogDescription>
         </DialogHeader>
         
-        {config && availableCamera ? (
+        {config ? (
           <Tabs defaultValue="basic">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -280,11 +309,53 @@ export function EditCameraConfigDialog({
             <TabsContent value="basic" className="pt-4">
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label>Camera</Label>
-                  <div className="p-3 bg-gray-50 rounded-md">
-                    <p className="font-medium">{availableCamera.name}</p>
-                    <p className="text-sm text-gray-500">Resolution: {availableCamera.resolution[0]} × {availableCamera.resolution[1]}</p>
-                  </div>
+                  <Label htmlFor="config-id">Configuration ID</Label>
+                  <Input
+                    id="config-id"
+                    value={id}
+                    disabled
+                    className="bg-gray-50"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Configuration ID cannot be changed
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="config-name" className={errors.name ? "text-red-500" : ""}>
+                    Configuration Name
+                  </Label>
+                  <Input
+                    id="config-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Main Camera - Left Position"
+                    className={errors.name ? "border-red-500" : ""}
+                  />
+                  {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label className={errors.camera ? "text-red-500" : ""}>Camera</Label>
+                  <Select
+                    value={selectedCameraId}
+                    onValueChange={setSelectedCameraId}
+                  >
+                    <SelectTrigger className={errors.camera ? "border-red-500" : ""}>
+                      <SelectValue placeholder="Select a camera" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCameras.map((camera) => (
+                        <SelectItem key={camera.id} value={camera.id}>
+                          {camera.name} ({camera.resolution[0]} × {camera.resolution[1]})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.camera && <p className="text-xs text-red-500">{errors.camera}</p>}
+                  <p className="text-xs text-gray-500">
+                    Select the camera to use for this configuration
+                  </p>
                 </div>
                 
                 <div className="grid gap-2">
@@ -458,12 +529,22 @@ export function EditCameraConfigDialog({
                         size="sm"
                         className="text-[var(--tensora-medium)]"
                         onClick={handleOpenMaskingEditor}
+                        disabled={!selectedCameraId}
                       >
                         <Edit className="h-4 w-4 mr-1" /> Edit Masking
                       </Button>
                     </div>
                     
-                    {maskingEdges.length > 0 ? (
+                    {!selectedCameraId ? (
+                      <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-md">
+                        <p className="text-sm text-yellow-700">
+                          Please select a camera first
+                        </p>
+                        <p className="text-xs text-yellow-600 mt-1">
+                          Camera selection is required to configure masking
+                        </p>
+                      </div>
+                    ) : maskingEdges.length > 0 ? (
                       <div className="p-3 bg-green-50 border border-green-100 rounded-md">
                         <p className="text-sm text-green-700">
                           Masking configuration: {maskingEdges.length} points defined
@@ -480,7 +561,7 @@ export function EditCameraConfigDialog({
                           No masking points defined
                         </p>
                         <p className="text-xs text-yellow-600 mt-1">
-                          Click "Edit Masking" to define the counting area
+                          Click &ldquo;Edit Masking&rdquo; to define the counting area
                         </p>
                       </div>
                     )}
@@ -502,7 +583,7 @@ export function EditCameraConfigDialog({
           <Button 
             onClick={handleSubmit}
             className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)]"
-            disabled={!config || !availableCamera}
+            disabled={!config}
           >
             Update Configuration
           </Button>
@@ -510,13 +591,13 @@ export function EditCameraConfigDialog({
       </DialogContent>
       
       {/* Masking Editor Modal - rendered outside the dialog */}
-      {availableCamera && maskingEditorOpen && (
+      {selectedCameraId && maskingEditorOpen && currentCamera && (
         <MaskingEditor
           isOpen={maskingEditorOpen}
           onClose={() => setMaskingEditorOpen(false)}
           onSave={handleSaveMasking}
           initialEdges={maskingEdges}
-          resolution={availableCamera.resolution}
+          resolution={currentCamera.resolution}
         />
       )}
     </Dialog>

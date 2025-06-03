@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModelScheduler } from "@/components/camera/model-scheduler";
 import { CountingModel, ModelSchedule } from "@/models/project";
+import { checkScheduleOverlaps } from "@/lib/schedule-utils";
 
 interface AddCameraDialogProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
     resolution?: string;
     sensor?: string;
     coordinates?: string;
+    schedules?: string;
   }>({});
 
   // Handle form submission
@@ -63,13 +65,13 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
     // Reset errors
     setErrors({});
 
-    // Validate form
     const newErrors: {
       id?: string;
       name?: string;
       resolution?: string;
       sensor?: string;
       coordinates?: string;
+      schedules?: string;
     } = {};
 
     if (!cameraId.trim()) {
@@ -124,6 +126,14 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
       }
     }
 
+    // Add schedule overlap validation
+    if (modelSchedules.length > 1) {
+      const { hasOverlap, conflictInfo } = checkScheduleOverlaps(modelSchedules);
+      if (hasOverlap) {
+        newErrors.schedules = `Schedule conflict: ${conflictInfo}`;
+      }
+    }
+
     // If there are errors, update state and return
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -167,7 +177,7 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
             Add New Camera
           </DialogTitle>
           <DialogDescription>
-            Add a new camera to your inventory. You'll be able to configure it in monitoring areas later.
+            Add a new camera to your inventory. You&apos;ll be able to configure it in monitoring areas later.
           </DialogDescription>
         </DialogHeader>
 
@@ -326,6 +336,12 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
               onDefaultModelChange={setDefaultModel}
               onSchedulesChange={setModelSchedules}
             />
+
+            {errors.schedules && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
+                {errors.schedules}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 

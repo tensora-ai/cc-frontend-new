@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CountingModel, ModelSchedule, TimeAtDay } from "@/models/project";
+import { CountingModel, ModelSchedule } from "@/models/project";
 
 interface ModelSchedulerProps {
     defaultModel: CountingModel;
@@ -42,18 +42,18 @@ export function ModelScheduler({
     };
 
     // Update a schedule
-    const handleUpdateSchedule = (id: string, field: string, value: any) => {
+    const handleUpdateSchedule = (id: string, field: string, value: string) => {
         const updatedSchedules = schedules.map(schedule => {
             if (schedule.id === id) {
                 if (field === 'name') {
                     return { ...schedule, name: value };
                 } else if (field === 'model') {
-                    return { ...schedule, model: value };
+                    return { ...schedule, model: value as CountingModel };
                 } else if (field === 'startHour') {
                     return { ...schedule, start: { ...schedule.start, hour: parseInt(value) } };
                 } else if (field === 'startMinute') {
                     return { ...schedule, start: { ...schedule.start, minute: parseInt(value) } };
-                } else if (field === 'startSecond') {
+                } else if (field === 'startSecond' ) {
                     return { ...schedule, start: { ...schedule.start, second: parseInt(value) } };
                 } else if (field === 'endHour') {
                     return { ...schedule, end: { ...schedule.end, hour: parseInt(value) } };
@@ -72,11 +72,6 @@ export function ModelScheduler({
     // Delete a schedule
     const handleDeleteSchedule = (id: string) => {
         onSchedulesChange(schedules.filter(schedule => schedule.id !== id));
-    };
-
-    // Format time for display
-    const formatTime = (time: TimeAtDay) => {
-        return `${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}:${time.second.toString().padStart(2, '0')}`;
     };
 
     return (
@@ -219,8 +214,8 @@ export function ModelScheduler({
                                             <SelectValue placeholder="Select a model" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value={CountingModel.Model0725}>Standard (model_0725.pth)</SelectItem>
-                                            <SelectItem value={CountingModel.ModelNWPU}>Low Light (model_nwpu.pth)</SelectItem>
+                                            <SelectItem value={CountingModel.ModelNWPU}>Standard (model_nwpu.pth)</SelectItem>
+                                            <SelectItem value={CountingModel.Model0725}>Low Light (model_0725.pth)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
