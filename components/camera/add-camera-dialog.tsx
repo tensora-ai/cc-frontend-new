@@ -281,7 +281,7 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
                 </div>
                 {errors.sensor && <p className="text-xs text-red-500">{errors.sensor}</p>}
                 <p className="text-xs text-gray-500">
-                  Enter the sensor size in mm or inches
+                  Enter the sensor size in m
                 </p>
               </div>
 

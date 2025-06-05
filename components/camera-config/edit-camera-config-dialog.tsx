@@ -439,7 +439,7 @@ export function EditCameraConfigDialog({
               <div className="grid gap-4">
                 <div className="flex items-center justify-between bg-[var(--tensora-light)]/5 p-3 rounded-md">
                   <div>
-                    <h4 className="text-sm font-medium">Enable Heatmap</h4>
+                    <h4 className="text-sm font-medium">Enable m²-Density</h4>
                     <p className="text-xs text-gray-500">Show density visualization</p>
                   </div>
                   <Switch
@@ -451,11 +451,11 @@ export function EditCameraConfigDialog({
                 {enableHeatmap && (
                   <div className="ml-4 border-l-2 border-[var(--tensora-light)]/20 pl-4">
                     <Label className={`mb-1 block text-sm ${errors.heatmap ? "text-red-500" : ""}`}>
-                      Heatmap Configuration
+                      m²-Density Configuration
                     </Label>
                     <div className="grid grid-cols-4 gap-2 mb-1">
                       <div className="flex flex-col">
-                        <span className="text-xs text-gray-500 mb-1">Value 1</span>
+                        <span className="text-xs text-gray-500 mb-1">x1</span>
                         <Input
                           value={heatmapMin}
                           onChange={(e) => setHeatmapMin(e.target.value)}
@@ -464,7 +464,7 @@ export function EditCameraConfigDialog({
                         />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-gray-500 mb-1">Value 2</span>
+                        <span className="text-xs text-gray-500 mb-1">y1</span>
                         <Input
                           value={heatmapLow}
                           onChange={(e) => setHeatmapLow(e.target.value)}
@@ -473,7 +473,7 @@ export function EditCameraConfigDialog({
                         />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-gray-500 mb-1">Value 3</span>
+                        <span className="text-xs text-gray-500 mb-1">x2</span>
                         <Input
                           value={heatmapMedium}
                           onChange={(e) => setHeatmapMedium(e.target.value)}
@@ -482,7 +482,7 @@ export function EditCameraConfigDialog({
                         />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-gray-500 mb-1">Value 4</span>
+                        <span className="text-xs text-gray-500 mb-1">y2</span>
                         <Input
                           value={heatmapMax}
                           onChange={(e) => setHeatmapMax(e.target.value)}
@@ -493,7 +493,7 @@ export function EditCameraConfigDialog({
                     </div>
                     {errors.heatmap && <p className="text-xs text-red-500 mb-2">{errors.heatmap}</p>}
                     <p className="text-xs text-gray-500 mb-2">
-                      Heatmap configuration parameters
+                      m²-Density configuration parameters
                     </p>
                   </div>
                 )}
