@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+// import Link from "next/link";
 
 export default function Header() {
   return (
@@ -10,7 +10,7 @@ export default function Header() {
         <div className="flex justify-between items-center">
           {/* Logo and App Name */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
+            {/*<Link href="/" className="flex items-center space-x-2">*/}
               <Image 
                 src="/tensora_logo.png" 
                 alt="Tensora Logo" 
@@ -19,7 +19,7 @@ export default function Header() {
                 className="h-auto"
               />
               <span className="font-semibold text-xl text-tensora-dark">Count</span>
-            </Link>
+            {/*</Link>*/}
           </div>
         </div>
       </div>
