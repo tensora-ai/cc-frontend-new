@@ -377,9 +377,9 @@ export default function DashboardPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
-          <Link href={`/project/${projectId}`} className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+          {/*<Link href={`/project/${projectId}`} className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
             <ArrowLeft className="h-5 w-5" />
-          </Link>
+          </Link>*/}
           <Skeleton className="h-8 w-48" />
         </div>
         
@@ -396,9 +396,9 @@ export default function DashboardPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
-          <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+          {/*<Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
             <ArrowLeft className="h-5 w-5" />
-          </Link>
+          </Link>*/}
           <h1 className="text-2xl font-bold">Dashboard</h1>
         </div>
         
@@ -407,13 +407,13 @@ export default function DashboardPage() {
           <div>
             <p className="font-medium">{error || "Project not found"}</p>
             <p className="text-sm mt-1">Please go back and select a valid project.</p>
-            <div className="mt-4">
+            {/*<div className="mt-4">
               <Link href={`/project/${projectId}`}>
                 <Button variant="outline">
                   <ArrowLeft className="h-4 w-4 mr-2" /> Back to Project
                 </Button>
               </Link>
-            </div>
+            </div>*/}
           </div>
         </div>
       </div>
@@ -425,9 +425,9 @@ export default function DashboardPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
-          <Link href={`/project/${projectId}`} className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+          {/*<Link href={`/project/${projectId}`} className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
             <ArrowLeft className="h-5 w-5" />
-          </Link>
+          </Link>*/}
           <h1 className="text-2xl font-bold text-[var(--tensora-dark)]">{project.name} Dashboard</h1>
         </div>
         
@@ -436,13 +436,13 @@ export default function DashboardPage() {
           <div>
             <p className="font-medium">No monitoring areas configured</p>
             <p className="text-sm mt-1">Please add areas and camera configurations to your project first.</p>
-            <div className="mt-4">
+            {/*<div className="mt-4">
               <Link href={`/project/${projectId}`}>
                 <Button variant="outline">
                   <ArrowLeft className="h-4 w-4 mr-2" /> Configure Project
                 </Button>
               </Link>
-            </div>
+            </div>*/}
           </div>
         </div>
       </div>
@@ -625,9 +625,9 @@ export default function DashboardPage() {
     <div className="container mx-auto px-4 py-8 space-y-6">
       {/* Header with back button and project name */}
       <div className="flex items-center mb-6">
-        <Link href={`/project/${projectId}`} className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+        {/*<Link href={`/project/${projectId}`} className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
           <ArrowLeft className="h-5 w-5" />
-        </Link>
+        </Link>*/}
         <h1 className="text-2xl font-bold text-[var(--tensora-dark)]">{project.name} Dashboard</h1>
       </div>
       
