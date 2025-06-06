@@ -116,11 +116,16 @@ export function UnifiedDensityDisplay({
     return result;
   };
 
-  // Helper function to filter coordinates based on crop area
+  // Helper function to filter coordinates based on crop area (OpenCV format)
   const filterCoords = (coords: CoordinatePoint[], crop: [number, number, number, number]): CoordinatePoint[] => {
-    const [left, top, right, bottom] = crop;
-    return coords.filter(([x, y, val]) => 
-      x >= left && x <= right && y >= top && y <= bottom
+    const [x, y, width, height] = crop;
+    const left = x;           // Left edge is the x coordinate of top-left point
+    const top = y;            // Top edge is the y coordinate of top-left point
+    const right = x + width;  // Right edge is x + width (extending to the right)
+    const bottom = y - height; // Bottom edge is y - height (extending downward in mathematical coordinates)
+    
+    return coords.filter(([coordX, coordY, val]) => 
+      coordX >= left && coordX <= right && coordY >= bottom && coordY <= top
     );
   };
 
@@ -130,28 +135,36 @@ export function UnifiedDensityDisplay({
     heatmapConfig?: [number, number, number, number]
   ): { processedCoords: CoordinatePoint[], bounds: { minX: number, maxX: number, minY: number, maxY: number } } => {
     let processedCoords = coords;
+    let bounds;
     
     // Apply cropping if heatmapConfig is provided
     if (heatmapConfig) {
       processedCoords = filterCoords(coords, heatmapConfig);
-    }
-    
-    if (processedCoords.length === 0) {
-      return { 
-        processedCoords: [], 
-        bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1 } 
+      
+      // Use crop rectangle bounds directly for consistent spatial alignment
+      const [x, y, width, height] = heatmapConfig;
+      bounds = {
+        minX: x,                // Left edge
+        maxX: x + width,        // Right edge  
+        minY: y - height,       // Bottom edge (Y increases upward, height extends downward)
+        maxY: y                 // Top edge
       };
+    } else {
+      // No crop - calculate bounds from actual data points
+      if (processedCoords.length === 0) {
+        bounds = { minX: 0, maxX: 1, minY: 0, maxY: 1 };
+      } else {
+        const minX = Math.min(...processedCoords.map(coord => coord[0]));
+        const maxX = Math.max(...processedCoords.map(coord => coord[0]));
+        const minY = Math.min(...processedCoords.map(coord => coord[1]));
+        const maxY = Math.max(...processedCoords.map(coord => coord[1]));
+        bounds = { minX, maxX, minY, maxY };
+      }
     }
-
-    // Find bounds of processed coordinates
-    const minX = Math.min(...processedCoords.map(coord => coord[0]));
-    const maxX = Math.max(...processedCoords.map(coord => coord[0]));
-    const minY = Math.min(...processedCoords.map(coord => coord[1]));
-    const maxY = Math.max(...processedCoords.map(coord => coord[1]));
 
     return {
       processedCoords,
-      bounds: { minX, maxX, minY, maxY }
+      bounds
     };
   };
 
@@ -191,7 +204,8 @@ export function UnifiedDensityDisplay({
         // Ensure within bounds
         if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
           // Use maximum value for overlaps
-          const currentValue = combinedGrid[gridHeight - gridY - 1][gridX]; // Flip Y for proper orientation
+          // Flip Y for proper orientation in mathematical coordinate system (Y increases upward)
+          const currentValue = combinedGrid[gridHeight - gridY - 1][gridX];
           combinedGrid[gridHeight - gridY - 1][gridX] = Math.max(currentValue, Math.min(density, 6.0));
         }
       });
