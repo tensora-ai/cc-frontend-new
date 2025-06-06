@@ -602,17 +602,19 @@ export default function DashboardPage() {
             />
           </div>
           
-          {/* Unified Density Display */}
-          <div className="bg-white rounded-lg border p-4 shadow-sm">
-            <h2 className="text-lg font-medium mb-4">Unified Density Map</h2>
-            <UnifiedDensityDisplay
-              projectId={projectId}
-              areaId={area.id}
-              timestamp={clickedTimestamp || formatUtcDateToIsoString(selectedDate)}
-              cameraConfigs={area.camera_configs}
-              cameraTimestamps={cameraTimestamps}
-            />
-          </div>
+            {/* Unified Density Display */}
+            {area.camera_configs.length > 0 && area.camera_configs.every(cfg => cfg.enable_heatmap) && (
+              <div className="bg-white rounded-lg border p-4 shadow-sm">
+                <h2 className="text-lg font-medium mb-4">Unified Density Map</h2>
+                <UnifiedDensityDisplay
+                projectId={projectId}
+                areaId={area.id}
+                timestamp={clickedTimestamp || formatUtcDateToIsoString(selectedDate)}
+                cameraConfigs={area.camera_configs}
+                cameraTimestamps={cameraTimestamps}
+                />
+              </div>
+            )}
           
           {/* Camera Configuration Panels */}
           {renderCameraConfigPanels(area.camera_configs)}
