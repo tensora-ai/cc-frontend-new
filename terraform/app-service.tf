@@ -19,20 +19,16 @@ data "azurerm_container_registry" "count" {
   resource_group_name = "rg-count-${var.customer}-${var.environment}-operations"
 }
 
-resource "azurerm_service_plan" "count_frontend" {
-  name                = "asp-count-${var.customer}-${var.environment}-frontend"
+data "azurerm_service_plan" "count" {
+  name                = "asp-count-${var.customer}-${var.environment}"
   resource_group_name = "rg-count-${var.customer}-${var.environment}-apps"
-  location            = var.location
-
-  os_type  = "Linux"
-  sku_name = "P0v3"
 }
 
 resource "azurerm_linux_web_app" "count_frontend" {
   name                = "app-count-${var.customer}-${var.environment}-frontend"
   resource_group_name = "rg-count-${var.customer}-${var.environment}-apps"
   location            = var.location
-  service_plan_id     = azurerm_service_plan.count_frontend.id
+  service_plan_id     = data.azurerm_service_plan.count.id
 
   logs {
     application_logs {
