@@ -61,7 +61,6 @@ resource "azurerm_linux_web_app" "count_frontend" {
     WEBSITES_CONTAINER_START_LIMIT      = 1800
     WEBSITES_PORT                       = 3000
     NEXT_PUBLIC_API_BASE_URL            = var.backend_base_url
-    NEXT_PUBLIC_API_KEY                 = var.backend_api_key
   }
 
   lifecycle {
