@@ -60,6 +60,8 @@ jobs:
           push: true
           tags: ${{ secrets.ACR_LOGIN_SERVER_INTERN_DEV }}/count-intern-dev-frontend:latest
           file: Dockerfile
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=https://app-count-intern-dev-backend.azurewebsites.net/api/v1
 
       - name: Wait for 1 Minute
         run: sleep 60s

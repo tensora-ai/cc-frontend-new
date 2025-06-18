@@ -2,8 +2,8 @@ import { tokenStorage, authUtils } from "@/lib/auth-utils";
 
 export const API_CONFIG = {
   // Backend API base URL - use environment variable with fallback
-  API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1",
-  
+  API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+
   // Request timeout in milliseconds
   TIMEOUT: 30000,
 };
