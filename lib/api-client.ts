@@ -1,23 +1,74 @@
-import { Project, ProjectCreate, CameraCreate, CameraUpdate, AreaCreate, AreaUpdate, CameraConfigCreate, CameraConfigUpdate } from "@/models/project";
+ import { Project, ProjectCreate, CameraCreate, CameraUpdate, AreaCreate, AreaUpdate, CameraConfigCreate, CameraConfigUpdate } from "@/models/project";
 import { AggregateTimeSeriesRequest, AggregateTimeSeriesResponse } from "@/models/dashboard";
+import { LoginRequest, LoginResponse, User } from "@/models/auth";
+import { authenticatedFetch, publicFetch, getApiUrl } from "@/lib/api-config";
+
 /**
- * API client for interacting with the backend via the Next.js API routes
+ * Enhanced API client with JWT authentication support
  */
 class ApiClient {
-  // Project Methods
+  // Authentication Methods
 
   /**
-   * Fetch all projects
+   * Login user and get access token
    */
-  async getProjects(): Promise<Project[]> {
-    const response = await fetch('/api/projects', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+  async login(credentials: LoginRequest): Promise<LoginResponse> {
+    const response = await publicFetch(getApiUrl('auth/login'), {
+      method: 'POST',
+      body: JSON.stringify(credentials),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch projects');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Login failed');
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Logout user (optional backend call)
+   */
+  async logout(): Promise<void> {
+    try {
+      await publicFetch(getApiUrl('auth/logout'), {
+        method: 'POST',
+      });
+    } catch (error) {
+      // Ignore logout errors - we'll clear local storage anyway
+      console.log('Logout endpoint error (ignored):', error);
+    }
+  }
+
+  /**
+   * Get current user information
+   */
+  async getCurrentUser(): Promise<User> {
+    const response = await authenticatedFetch(getApiUrl('auth/me'), {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Failed to fetch user information');
+    }
+
+    return await response.json();
+  }
+
+  // Project Methods
+
+  /**
+   * Fetch all projects (filtered by user access automatically by backend)
+   */
+  async getProjects(): Promise<Project[]> {
+    const response = await authenticatedFetch(getApiUrl('projects'), {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Failed to fetch projects');
     }
 
     const data = await response.json();
@@ -25,52 +76,64 @@ class ApiClient {
   }
 
   /**
-   * Fetch a project by ID
+   * Fetch a project by ID (with access control)
    */
   async getProject(projectId: string): Promise<Project> {
-    const response = await fetch(`/api/projects/${projectId}`, {
+    const response = await authenticatedFetch(getApiUrl(`projects/${projectId}`), {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch project');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to access this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to fetch project');
     }
 
     return await response.json();
   }
 
   /**
-   * Create a new project
+   * Create a new project (Super admin only)
    */
   async createProject(project: ProjectCreate): Promise<Project> {
-    const response = await fetch('/api/projects', {
+    const response = await authenticatedFetch(getApiUrl('projects'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(project),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create project');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to create projects');
+      }
+      
+      throw new Error(error.detail || 'Failed to create project');
     }
 
     return await response.json();
   }
 
   /**
-   * Delete a project
+   * Delete a project (Super admin only)
    */
   async deleteProject(projectId: string): Promise<boolean> {
-    const response = await fetch(`/api/projects/${projectId}`, {
+    const response = await authenticatedFetch(getApiUrl(`projects/${projectId}`), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete project');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to delete projects');
+      }
+      
+      throw new Error(error.detail || 'Failed to delete project');
     }
 
     return true;
@@ -79,53 +142,65 @@ class ApiClient {
   // Camera Methods
 
   /**
-   * Add a camera to a project
+   * Add a camera to a project (requires project management access)
    */
   async addCamera(projectId: string, camera: CameraCreate): Promise<Project> {
-    const response = await fetch(`/api/projects/${projectId}/cameras`, {
+    const response = await authenticatedFetch(getApiUrl(`projects/${projectId}/cameras`), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(camera),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to add camera');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to manage cameras in this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to add camera');
     }
 
     return await response.json();
   }
 
   /**
-   * Update a camera
+   * Update a camera (requires project management access)
    */
   async updateCamera(projectId: string, cameraId: string, camera: CameraUpdate): Promise<Project> {
-    const response = await fetch(`/api/projects/${projectId}/cameras/${cameraId}`, {
+    const response = await authenticatedFetch(getApiUrl(`projects/${projectId}/cameras/${cameraId}`), {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(camera),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update camera');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to update cameras in this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to update camera');
     }
 
     return await response.json();
   }
 
   /**
-   * Delete a camera
+   * Delete a camera (requires project management access)
    */
   async deleteCamera(projectId: string, cameraId: string): Promise<Project> {
-    const response = await fetch(`/api/projects/${projectId}/cameras/${cameraId}`, {
+    const response = await authenticatedFetch(getApiUrl(`projects/${projectId}/cameras/${cameraId}`), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete camera');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to delete cameras in this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to delete camera');
     }
 
     return await response.json();
@@ -134,53 +209,65 @@ class ApiClient {
   // Area Methods
 
   /**
-   * Add an area to a project
+   * Add an area to a project (requires project management access)
    */
   async addArea(projectId: string, area: AreaCreate): Promise<Project> {
-    const response = await fetch(`/api/projects/${projectId}/areas`, {
+    const response = await authenticatedFetch(getApiUrl(`projects/${projectId}/areas`), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(area),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to add area');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to manage areas in this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to add area');
     }
 
     return await response.json();
   }
 
   /**
-   * Update an area
+   * Update an area (requires project management access)
    */
   async updateArea(projectId: string, areaId: string, area: AreaUpdate): Promise<Project> {
-    const response = await fetch(`/api/projects/${projectId}/areas/${areaId}`, {
+    const response = await authenticatedFetch(getApiUrl(`projects/${projectId}/areas/${areaId}`), {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(area),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update area');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to update areas in this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to update area');
     }
 
     return await response.json();
   }
 
   /**
-   * Delete an area
+   * Delete an area (requires project management access)
    */
   async deleteArea(projectId: string, areaId: string): Promise<Project> {
-    const response = await fetch(`/api/projects/${projectId}/areas/${areaId}`, {
+    const response = await authenticatedFetch(getApiUrl(`projects/${projectId}/areas/${areaId}`), {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete area');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to delete areas in this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to delete area');
     }
 
     return await response.json();
@@ -189,68 +276,80 @@ class ApiClient {
   // Camera Configuration Methods
 
   /**
-   * Add a camera configuration to an area
+   * Add a camera configuration to an area (requires project management access)
    */
   async addCameraConfig(projectId: string, areaId: string, config: CameraConfigCreate): Promise<Project> {
-    const response = await fetch(`/api/projects/${projectId}/areas/${areaId}/camera-configs`, {
+    const response = await authenticatedFetch(getApiUrl(`projects/${projectId}/areas/${areaId}/camera-configs`), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to add camera configuration');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to manage camera configurations in this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to add camera configuration');
     }
 
     return await response.json();
   }
 
   /**
-   * Update a camera configuration
+   * Update a camera configuration (requires project management access)
    */
   async updateCameraConfig(
     projectId: string,
     areaId: string,
-    configId: string, // Use configId instead of cameraId & position
+    configId: string,
     config: CameraConfigUpdate
   ): Promise<Project> {
-    const response = await fetch(
-      `/api/projects/${projectId}/areas/${areaId}/camera-configs/${configId}`,
+    const response = await authenticatedFetch(
+      getApiUrl(`projects/${projectId}/areas/${areaId}/camera-configs/${configId}`),
       {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       }
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update camera configuration');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to update camera configurations in this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to update camera configuration');
     }
 
     return await response.json();
   }
 
   /**
-   * Delete a camera configuration
+   * Delete a camera configuration (requires project management access)
    */
   async deleteCameraConfig(
     projectId: string,
     areaId: string,
-    configId: string // Use configId instead of cameraId & position
+    configId: string
   ): Promise<Project> {
-    const response = await fetch(
-      `/api/projects/${projectId}/areas/${areaId}/camera-configs/${configId}`,
+    const response = await authenticatedFetch(
+      getApiUrl(`projects/${projectId}/areas/${areaId}/camera-configs/${configId}`),
       {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
       }
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete camera configuration');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to delete camera configurations in this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to delete camera configuration');
     }
 
     return await response.json();
@@ -259,18 +358,29 @@ class ApiClient {
   // Predictions Methods
 
   /**
-   * Aggregate time series predictions
+   * Aggregate time series predictions (requires dashboard access)
    */
-  async aggregatePredictions(data: AggregateTimeSeriesRequest): Promise<AggregateTimeSeriesResponse> {
-    const response = await fetch('/api/predictions/aggregate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
+  async aggregatePredictions(
+    projectId: string, 
+    areaId: string, 
+    data: AggregateTimeSeriesRequest
+  ): Promise<AggregateTimeSeriesResponse> {
+    const response = await authenticatedFetch(
+      getApiUrl(`projects/${projectId}/areas/${areaId}/predictions/aggregate`), 
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to aggregate predictions');
+      const error = await response.json().catch(() => ({}));
+      
+      if (response.status === 403) {
+        throw new Error('You do not have permission to access dashboard data for this project');
+      }
+      
+      throw new Error(error.detail || 'Failed to aggregate predictions');
     }
 
     return await response.json();
@@ -279,10 +389,17 @@ class ApiClient {
   // Images Methods
 
   /**
-   * Get image URL
+   * Get image URL with authentication headers
    */
   getImageUrl(imageName: string): string {
-    return `/api/images/${imageName}`;
+    return getApiUrl(`images/${imageName}`);
+  }
+
+  /**
+   * Get blob URL with authentication
+   */
+  getBlobUrl(containerName: string, blobName: string): string {
+    return `/api/blobs/${containerName}/${blobName}`;
   }
 }
 
