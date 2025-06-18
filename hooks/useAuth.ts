@@ -154,10 +154,10 @@ export function useAuth() {
 
         const accessCount = auth.user.project_access?.length ?? 0;
         if (accessCount === 0) {
-          return 'No projects assigned';
+          return 'No projects';
         }
 
-        return `${accessCount} project${accessCount !== 1 ? 's' : ''} assigned`;
+        return (auth.user.project_access ?? []).join(', ');
       },
     },
 

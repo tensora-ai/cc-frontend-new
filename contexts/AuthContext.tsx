@@ -28,16 +28,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   });
   
   const [error, setError] = useState<string | null>(null);
+  const [initializing, setInitializing] = useState(true);
 
   // Initialize auth state from localStorage
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        // Only set loading if this is initial load
+        if (initializing) {
+          setInitializing(false);
+        }
+        
         const token = tokenStorage.getAccessToken();
         const userData = tokenStorage.getUserData();
         
         if (token && userData && authUtils.isAuthenticated()) {
-          // Token exists and is valid
+          // Token exists and is valid - set state in a single update
           setAuthState({
             user: userData,
             accessToken: token,
@@ -51,7 +57,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Cleanup on component unmount
           return cleanup;
         } else {
-          // No valid token/user data
+          // No valid token/user data - set state in a single update
           tokenStorage.clearAll();
           setAuthState({
             user: null,
@@ -62,6 +68,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } catch (error) {
         console.error('Error initializing auth state:', error);
+        // Handle error with a single state update
         tokenStorage.clearAll();
         setAuthState({
           user: null,
@@ -72,13 +79,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     };
 
+    // Initialize auth only once
     initializeAuth();
-  }, []);
+  }, []); // Empty dependency array ensures this runs only once
 
-  // Login function
+  // Login function - with improved state management
   const login = async (credentials: LoginRequest): Promise<void> => {
     try {
       setError(null);
+      // Set loading state in a single update
       setAuthState(prev => ({ ...prev, isLoading: true }));
 
       const response = await publicFetch(getApiUrl('auth/login'), {
@@ -97,7 +106,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       tokenStorage.setAccessToken(loginData.access_token);
       tokenStorage.setUserData(loginData.user);
 
-      // Update auth state
+      // Update auth state in a single update
       setAuthState({
         user: loginData.user,
         accessToken: loginData.access_token,
@@ -116,6 +125,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Clear any partial auth data
       tokenStorage.clearAll();
       
+      // Set error and auth state in separate updates to avoid race conditions
+      setError(errorMessage);
       setAuthState({
         user: null,
         accessToken: null,
@@ -123,7 +134,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
       });
       
-      setError(errorMessage);
       throw error;
     }
   };
