@@ -93,54 +93,14 @@ export default function Header() {
                           {auth.display.getUserRoleDisplay()}
                         </p>
                         <p className="text-xs text-gray-400 truncate mt-1">
-                          {auth.display.formatProjectAccessList()}
+                          Access to: {auth.display.formatProjectAccessList()}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Account Info */}
-                  <div className="px-4 py-2">
-                    <div className="text-xs text-gray-500 space-y-1">
-                      <div className="flex justify-between">
-                        <span>Account Status:</span>
-                        <span className="text-green-600 font-medium">Active</span>
-                      </div>
-                      {auth.user?.last_login && (
-                        <div className="flex justify-between">
-                          <span>Last Login:</span>
-                          <span className="text-gray-700">
-                            {new Date(auth.user.last_login).toLocaleDateString()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
                   {/* Menu Actions */}
                   <div className="border-t border-gray-100">
-                    {/* Profile/Settings - Future feature */}
-                    <button
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 opacity-50 cursor-not-allowed"
-                      disabled
-                    >
-                      <User className="h-4 w-4" />
-                      <span>Account Settings</span>
-                      <span className="text-xs text-gray-400 ml-auto">Soon</span>
-                    </button>
-
-                    {/* System Settings - Super Admin Only */}
-                    {auth.permissions.isSuperAdmin() && (
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 opacity-50 cursor-not-allowed"
-                        disabled
-                      >
-                        <Settings className="h-4 w-4" />
-                        <span>System Settings</span>
-                        <span className="text-xs text-gray-400 ml-auto">Soon</span>
-                      </button>
-                    )}
-
                     {/* Logout */}
                     <button
                       onClick={() => {
