@@ -22,15 +22,14 @@ import { UnifiedDensityDisplay } from "@/components/dashboard/unified-density-di
 
 // Import types
 import { Project, CameraConfig } from "@/models/project";
-import { 
-  AggregateTimeSeriesResponse, 
+import {
   TimeSeriesPoint, 
   CameraTimestamp 
 } from "@/models/dashboard";
 
 // Import auth components
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
+import { apiClient } from "@/lib/api-client";
 
 // Dashboard states
 type DashboardState = 'initial' | 'loading' | 'success' | 'error' | 'empty';
@@ -290,39 +289,19 @@ function DashboardPageContent() {
       setDashboardState('loading');
       setDataError(null);
       setClickedTimestamp(null);
-      setTimeSeriesData([]); // Clear previous data
-      setCameraTimestamps([]); // Clear previous camera timestamps
-      setCameraConfigTimestamps({}); // Reset pre-calculated timestamps
+      setTimeSeriesData([]);
+      setCameraTimestamps([]);
+      setCameraConfigTimestamps({});
       
       // Convert local time to UTC for API request
       const endDate = formatUtcDateToIsoString(selectedDate);
       
-      // Make API request
-      const response = await fetch(`/api/projects/${projectId}/areas/${selectedArea}/predictions/aggregate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          end_date: endDate,
-          lookback_hours: lookbackHours,
-          half_moving_avg_size: 0
-        }),
+      const data = await apiClient.aggregatePredictions(projectId, selectedArea, {
+        end_date: endDate,
+        lookback_hours: lookbackHours,
+        half_moving_avg_size: 0
       });
       
-      if (!response.ok) {
-        if (response.status === 422) {
-          setDataError("Not enough prediction data available. Some cameras in this area do not have data while others do.");
-          setDashboardState('error');
-        } else {
-          setDataError("Failed to fetch prediction data. Please try again.");
-          setDashboardState('error');
-        }
-        return;
-      }
-      
-      const data: AggregateTimeSeriesResponse = await response.json();
-
       console.log("Fetched time series data:", data);
       console.log("Available Camera timestamps:", data.camera_timestamps);
       
@@ -346,7 +325,15 @@ function DashboardPageContent() {
       
     } catch (err) {
       console.error("Failed to fetch time series data:", err);
-      setDataError("Failed to fetch prediction data. Please try again.");
+      if (err instanceof Error) {
+        if (err.message.includes('422')) {
+          setDataError("Not enough prediction data available. Some cameras in this area do not have data while others do.");
+        } else {
+          setDataError(err.message);
+        }
+      } else {
+        setDataError("Failed to fetch prediction data. Please try again.");
+      }
       setDashboardState('error');
     }
   };
@@ -414,29 +401,18 @@ function DashboardPageContent() {
     async function fetchProject() {
       try {
         setLoading(true);
-        const response = await fetch(`/api/projects/${projectId}`);
         
-        if (!response.ok) {
-          if (response.status === 403) {
-            throw new Error('You do not have permission to access this project');
-          } else if (response.status === 404) {
-            throw new Error('Project not found');
-          } else {
-            throw new Error(`Failed to fetch project: ${response.statusText}`);
-          }
-        }
-        
-        const data = await response.json();
-        setProject(data);
+        const projectData = await apiClient.getProject(projectId);
+        setProject(projectData);
         
         // Set the first area as selected by default
-        if (data.areas && data.areas.length > 0) {
-          setSelectedArea(data.areas[0].id);
+        if (projectData.areas && projectData.areas.length > 0) {
+          setSelectedArea(projectData.areas[0].id);
         }
         
         setLoading(false);
       } catch (err) {
-        console.error("Failed to fetch project:", err);
+        console.error("Failed to fetch project details:", err);
         if (err instanceof Error) {
           setError(err.message);
         } else {
@@ -491,6 +467,9 @@ function DashboardPageContent() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
+          <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
           <h1 className="text-2xl font-bold">Dashboard</h1>
         </div>
         
@@ -517,6 +496,9 @@ function DashboardPageContent() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
+          <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
           <h1 className="text-2xl font-bold text-[var(--tensora-dark)]">{project.name} Dashboard</h1>
         </div>
         
@@ -707,6 +689,9 @@ function DashboardPageContent() {
     <div className="container mx-auto px-4 py-8 space-y-6">
       {/* Header with project name */}
       <div className="flex items-center mb-6">
+          <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
         <h1 className="text-2xl font-bold text-[var(--tensora-dark)]">{project.name} Dashboard</h1>
       </div>
       
@@ -765,27 +750,49 @@ function DashboardPageContent() {
   );
 }
 
-// Main protected dashboard page component
+// Main protected dashboard page component with improved permission check
 export default function DashboardPage() {
   const params = useParams();
   const projectId = params.project_id as string;
+  const auth = useAuth();
 
-  // Custom permission check for dashboard access
-  const canViewDashboard = (auth: ReturnType<typeof useAuth>) => {
-    if (!auth.user || !projectId) return false;
+  // Show loading if auth is still loading
+  if (auth.isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center mb-6">
+          <Skeleton className="h-8 w-48" />
+        </div>
+        
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, redirect to login
+  if (!auth.isAuthenticated) {
+    return null; // Let middleware handle redirect
+  }
+
+  // FIXED: Improved permission check that waits for auth to be ready
+  const canViewDashboard = () => {
+    // Wait for auth to be fully loaded
+    if (auth.isLoading || !auth.user || !projectId) {
+      return false;
+    }
     
-    // All roles can view dashboard if they have project access
+    // Check permissions only when auth is ready
     return auth.permissions.canViewDashboard(projectId);
   };
 
-  return (
-    <ProtectedRoute
-      projectId={projectId}
-      requireProjectAccess={true}
-      customPermissionCheck={canViewDashboard}
-      fallbackComponent={<DashboardAccessDenied projectId={projectId} />}
-    >
-      <DashboardPageContent />
-    </ProtectedRoute>
-  );
+  // If permission check fails, show access denied
+  if (!canViewDashboard()) {
+    return <DashboardAccessDenied projectId={projectId} />;
+  }
+
+  // Permission check passed, render dashboard
+  return <DashboardPageContent />;
 }

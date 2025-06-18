@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 import { formatTimestampForBlobPath, formatUtcToLocalDisplay } from "@/lib/datetime-utils";
+import { apiClient } from "@/lib/api-client";
 
 interface HeatmapDisplayProps {
   projectId: string;
@@ -34,40 +35,21 @@ export function HeatmapDisplay({
   
   // Fetch heatmap when parameters change
   useEffect(() => {
-    async function fetchHeatmap() {
+      async function fetchHeatmap() {
       if (!projectId || !cameraId || !positionId || !timestamp) return;
       
       try {
         setLoading(true);
         setError(null);
         
-        // Construct the blob path directly
-        // Format: {project_id}-{camera_id}-{position}-{timestamp}_heatmap.png
+        // Construct the blob name directly
         const formattedTimestamp = formatTimestampForBlobPath(timestamp);
         const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_heatmap.jpg`;
         
-        // Use the direct blob access endpoint
-        const blobUrl = `/api/blobs/images/${blobName}`;
-
-        console.log("Fetching heatmap from:", blobUrl);
+        console.log("Fetching heatmap from backend:", blobName);
         
-        // Check if the blob exists by making a HEAD request
-        const response = await fetch(blobUrl);
-        
-        if (!response.ok) {
-          if (response.status === 404) {
-            // Handle missing blob gracefully
-            setError(`No data available for this timestamp`);
-          } else {
-            // Handle other errors
-            setError(`Failed to fetch data: ${response.statusText}`);
-          }
-          setLoading(false);
-          return;
-        }
-
-        // Get heatmap as blob
-        const blob = await response.blob();
+        // ✅ Use apiClient for direct backend access with authentication
+        const blob = await apiClient.fetchImageBlob(blobName);
         
         // Create a local URL for the blob
         const objectUrl = URL.createObjectURL(blob);
@@ -77,7 +59,15 @@ export function HeatmapDisplay({
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch heatmap data:", err);
-        setError("Failed to load heatmap data. Please try again.");
+        if (err instanceof Error) {
+          if (err.message.includes('not found')) {
+            setError("No data available for this timestamp");
+          } else {
+            setError(err.message);
+          }
+        } else {
+          setError("Failed to load heatmap data. Please try again.");
+        }
         setLoading(false);
       }
     }

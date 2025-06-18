@@ -386,20 +386,72 @@ class ApiClient {
     return await response.json();
   }
 
-  // Images Methods
-
   /**
-   * Get image URL with authentication headers
+   * Get direct backend URL for image blobs with authentication
    */
-  getImageUrl(imageName: string): string {
-    return getApiUrl(`images/${imageName}`);
+  getImageBlobUrl(blobName: string): string {
+    return getApiUrl(`blobs/images/${blobName}`);
   }
 
   /**
-   * Get blob URL with authentication
+   * Get direct backend URL for prediction blobs with authentication  
    */
-  getBlobUrl(containerName: string, blobName: string): string {
-    return `/api/blobs/${containerName}/${blobName}`;
+  getPredictionBlobUrl(blobName: string): string {
+    return getApiUrl(`blobs/predictions/${blobName}`);
+  }
+
+  /**
+   * Fetch image blob directly from backend with authentication
+   */
+  async fetchImageBlob(blobName: string): Promise<Blob> {
+    const response = await authenticatedFetch(this.getImageBlobUrl(blobName), {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Image not found');
+      }
+      throw new Error(`Failed to fetch image: ${response.statusText}`);
+    }
+
+    return await response.blob();
+  }
+
+  /**
+   * Fetch prediction blob directly from backend with authentication
+   */
+  async fetchPredictionBlob(blobName: string): Promise<Blob> {
+    const response = await authenticatedFetch(this.getPredictionBlobUrl(blobName), {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Prediction data not found');
+      }
+      throw new Error(`Failed to fetch prediction data: ${response.statusText}`);
+    }
+
+    return await response.blob();
+  }
+
+  /**
+   * Fetch prediction JSON directly from backend with authentication
+   */
+  async fetchPredictionJson(blobName: string): Promise<any> {
+    const response = await authenticatedFetch(this.getPredictionBlobUrl(blobName), {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Prediction data not found');
+      }
+      throw new Error(`Failed to fetch prediction data: ${response.statusText}`);
+    }
+
+    return await response.json();
   }
 }
 
