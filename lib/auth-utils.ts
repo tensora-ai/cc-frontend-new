@@ -1,5 +1,5 @@
 /**
- * Authentication utilities for token management and JWT handling
+ * Enhanced authentication utilities with cookie support for SSR
  */
 
 import { JWTPayload, User, UserRole } from "@/models/auth";
@@ -9,28 +9,67 @@ const ACCESS_TOKEN_KEY = 'tensora_count_access_token';
 const USER_DATA_KEY = 'tensora_count_user_data';
 
 /**
- * Token Storage Functions
+ * Cookie utilities for server-side rendering support
  */
-export const tokenStorage = {
-  // Store access token
-  setAccessToken: (token: string): void => {
+export const cookieUtils = {
+  // Set cookie (client-side)
+  setCookie: (name: string, value: string, days: number = 7): void => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(ACCESS_TOKEN_KEY, token);
+      const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
+      document.cookie = `${name}=${value}; expires=${expires}; path=/; secure; samesite=strict`;
     }
   },
 
-  // Get access token
+  // Get cookie (client-side)
+  getCookie: (name: string): string | null => {
+    if (typeof window !== 'undefined') {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) {
+        return parts.pop()?.split(';').shift() || null;
+      }
+    }
+    return null;
+  },
+
+  // Delete cookie (client-side)
+  deleteCookie: (name: string): void => {
+    if (typeof window !== 'undefined') {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    }
+  }
+};
+
+/**
+ * Enhanced Token Storage Functions with cookie support
+ */
+export const tokenStorage = {
+  // Store access token (both localStorage and cookie)
+  setAccessToken: (token: string): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(ACCESS_TOKEN_KEY, token);
+      cookieUtils.setCookie(ACCESS_TOKEN_KEY, token, 7); // 7 days
+    }
+  },
+
+  // Get access token (try cookie first, fallback to localStorage)
   getAccessToken: (): string | null => {
     if (typeof window !== 'undefined') {
+      // Try cookie first (for SSR compatibility)
+      const cookieToken = cookieUtils.getCookie(ACCESS_TOKEN_KEY);
+      if (cookieToken) return cookieToken;
+      
+      // Fallback to localStorage
       return localStorage.getItem(ACCESS_TOKEN_KEY);
     }
     return null;
   },
 
-  // Remove access token
+  // Remove access token (both localStorage and cookie)
   removeAccessToken: (): void => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
+      cookieUtils.deleteCookie(ACCESS_TOKEN_KEY);
     }
   },
 
@@ -38,19 +77,37 @@ export const tokenStorage = {
   setUserData: (user: User): void => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(USER_DATA_KEY, JSON.stringify(user));
+      // Also store in cookie for SSR (but limit data size)
+      const userData = {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        project_access: user.project_access
+      };
+      cookieUtils.setCookie(USER_DATA_KEY, JSON.stringify(userData), 7);
     }
   },
 
   // Get user data
   getUserData: (): User | null => {
     if (typeof window !== 'undefined') {
-      const userData = localStorage.getItem(USER_DATA_KEY);
-      if (userData) {
+      // Try localStorage first (more complete data)
+      const localData = localStorage.getItem(USER_DATA_KEY);
+      if (localData) {
         try {
-          return JSON.parse(userData) as User;
+          return JSON.parse(localData) as User;
         } catch (error) {
           console.error('Error parsing user data from localStorage:', error);
-          return null;
+        }
+      }
+      
+      // Fallback to cookie
+      const cookieData = cookieUtils.getCookie(USER_DATA_KEY);
+      if (cookieData) {
+        try {
+          return JSON.parse(cookieData) as User;
+        } catch (error) {
+          console.error('Error parsing user data from cookie:', error);
         }
       }
     }
@@ -61,6 +118,7 @@ export const tokenStorage = {
   removeUserData: (): void => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(USER_DATA_KEY);
+      cookieUtils.deleteCookie(USER_DATA_KEY);
     }
   },
 
@@ -126,7 +184,7 @@ export const jwtUtils = {
 };
 
 /**
- * Auth State Functions
+ * Auth State Functions with Role-Based Permissions
  */
 export const authUtils = {
   // Check if user is authenticated
@@ -143,7 +201,7 @@ export const authUtils = {
     return tokenStorage.getUserData();
   },
 
-  // Logout user (clear all data)
+  // Logout user (clear all data and redirect)
   logout: (): void => {
     tokenStorage.clearAll();
     
@@ -210,6 +268,17 @@ export const authUtils = {
     
     // All roles can view dashboard if they have project access
     return authUtils.hasProjectAccess(user, projectId);
+  },
+
+  // Check if user can view project settings (NOT for PROJECT_OPERATOR)
+  canViewProjectSettings: (user: User | null, projectId: string): boolean => {
+    if (!user) return false;
+    
+    // PROJECT_OPERATOR cannot view project settings - dashboard only!
+    if (user.role === UserRole.PROJECT_OPERATOR) return false;
+    
+    // Super admin and project admin can view settings
+    return authUtils.canManageProject(user, projectId);
   },
 
   // Format user display name

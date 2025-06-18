@@ -65,6 +65,10 @@ export function useAuth() {
         return authUtils.canViewDashboard(auth.user, projectId);
       },
 
+      canViewProjectSettings: (projectId: string): boolean => {
+        return authUtils.canViewProjectSettings(auth.user, projectId);
+      },
+
       // Specific feature permissions
       canCreateProject: (): boolean => {
         return authUtils.isSuperAdmin(auth.user);
