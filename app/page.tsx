@@ -46,7 +46,7 @@ function HomePageContent() {
     if (auth.isAuthenticated) {
       fetchProjects();
     }
-  }, [auth.permissions, auth.isAuthenticated]);
+  }, [auth.isAuthenticated]);
 
   // Function to handle project deletion (SUPER_ADMIN only)
   const handleDeleteClick = (project: Project) => {

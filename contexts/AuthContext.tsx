@@ -28,17 +28,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   });
   
   const [error, setError] = useState<string | null>(null);
-  const [initializing, setInitializing] = useState(true);
 
-  // Initialize auth state from localStorage
+  // Initialize auth state from localStorage - optimized to reduce state updates
   useEffect(() => {
-    const initializeAuth = async () => {
+    const initializeAuth = () => {
       try {
-        // Only set loading if this is initial load
-        if (initializing) {
-          setInitializing(false);
-        }
-        
         const token = tokenStorage.getAccessToken();
         const userData = tokenStorage.getUserData();
         
@@ -57,7 +51,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Cleanup on component unmount
           return cleanup;
         } else {
-          // No valid token/user data - set state in a single update
+          // No valid token/user data - clear storage and set unauthenticated state
           tokenStorage.clearAll();
           setAuthState({
             user: null,
@@ -79,8 +73,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     };
 
-    // Initialize auth only once
-    initializeAuth();
+    // Use requestAnimationFrame to ensure this runs after initial render
+    // This prevents flashing during hydration
+    const timeoutId = requestAnimationFrame(() => {
+      initializeAuth();
+    });
+
+    return () => {
+      cancelAnimationFrame(timeoutId);
+    };
   }, []); // Empty dependency array ensures this runs only once
 
   // Login function - with improved state management

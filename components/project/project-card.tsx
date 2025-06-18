@@ -91,7 +91,7 @@ export function ProjectCard({
           </div>
         )}
       </CardContent>
-      <CardFooter className="pt-2">
+      <CardFooter>
         <Link href={primaryAction.href} className="w-full">
           <Button 
             className="w-full bg-[var(--tensora-medium)] hover:bg-[var(--tensora-dark)] text-white" 
