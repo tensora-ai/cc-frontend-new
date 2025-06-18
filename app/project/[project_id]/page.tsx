@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Camera, Map, AlertCircle, BarChart3 } from "lucide-react";
+import { ArrowLeft, Camera, Map, AlertCircle, BarChart3, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -57,6 +57,91 @@ function ProjectOperatorRedirect() {
               <BarChart3 className="h-4 w-4 mr-2" /> Go to Dashboard
             </Button>
           </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Access denied component for project settings
+function ProjectSettingsAccessDenied({ projectId }: { projectId: string }) {
+  const auth = useAuth();
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex items-center mb-6">
+        <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="text-2xl font-bold">Project Settings</h1>
+      </div>
+
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-8 text-center">
+          {/* Icon */}
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-100 mb-6">
+            <Shield className="h-8 w-8 text-amber-600" />
+          </div>
+
+          {/* Title */}
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Project Settings Access Restricted
+          </h2>
+
+          {/* User info */}
+          <div className="bg-gray-50 rounded-md p-4 mb-6">
+            <p className="text-sm text-gray-600 mb-1">Signed in as:</p>
+            <p className="font-medium text-gray-900">{auth.display.getUserDisplayName()}</p>
+            <p className="text-sm text-gray-500">{auth.display.getUserRoleDisplay()}</p>
+          </div>
+
+          {/* Reason */}
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-6">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-amber-400 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-medium text-amber-800 mb-2">
+                  Project Settings Not Available
+                </p>
+                <p className="text-sm text-amber-700">
+                  Your role ({auth.display.getUserRoleDisplay()}) allows you to view the dashboard but not modify project settings.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Available actions */}
+          <div className="text-left mb-6">
+            <p className="text-sm font-medium text-gray-900 mb-2">What you can do:</p>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li className="flex items-start">
+                <span className="text-gray-400 mr-2">•</span>
+                Access the dashboard to view crowd counting data
+              </li>
+              <li className="flex items-start">
+                <span className="text-gray-400 mr-2">•</span>
+                Contact your administrator if you need to modify project settings
+              </li>
+              <li className="flex items-start">
+                <span className="text-gray-400 mr-2">•</span>
+                Return to the project list to view other projects you have access to
+              </li>
+            </ul>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href={`/project/${projectId}/dashboard`}>
+              <Button className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)] text-white">
+                <BarChart3 className="h-4 w-4 mr-2" /> Go to Dashboard
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -653,20 +738,35 @@ function ProjectDetailPageContent() {
 
 // Main component with role-based access control
 export default function ProjectDetailPage() {
+  const params = useParams();
+  const projectId = params.project_id as string;
   const auth = useAuth();
 
+  // Custom permission check for project settings
+  const canViewProjectSettings = (auth: ReturnType<typeof useAuth>) => {
+    if (!auth.user || !projectId) return false;
+    
+    // PROJECT_OPERATOR cannot view project settings
+    if (auth.user.role === UserRole.PROJECT_OPERATOR) {
+      return false;
+    }
+    
+    // Check if user can view project settings for this specific project
+    return auth.permissions.canViewProjectSettings(projectId);
+  };
+
   return (
-    <ProtectedRoute>
-      {/* Custom role-based routing logic */}
+    <ProtectedRoute
+      projectId={projectId}
+      requireProjectAccess={true}
+    >
+      {/* Role-based routing logic */}
       {auth.user?.role === UserRole.PROJECT_OPERATOR ? (
         <ProjectOperatorRedirect />
       ) : (
         <ProtectedRoute
-          customPermissionCheck={(auth) => {
-            const params = new URLSearchParams(window.location.search);
-            const projectId = window.location.pathname.split('/')[2];
-            return auth.permissions.canViewProjectSettings(projectId);
-          }}
+          customPermissionCheck={canViewProjectSettings}
+          fallbackComponent={<ProjectSettingsAccessDenied projectId={projectId} />}
         >
           <ProjectDetailPageContent />
         </ProtectedRoute>

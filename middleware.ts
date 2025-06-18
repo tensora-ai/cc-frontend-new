@@ -40,6 +40,7 @@ function getUserFromCookies(request: NextRequest): any {
     
     return JSON.parse(userDataCookie);
   } catch (error) {
+    console.error('Error parsing user data from cookies:', error);
     return null;
   }
 }
@@ -69,6 +70,35 @@ function canViewProjectSettings(user: any, projectId: string): boolean {
   return user.role === 'PROJECT_ADMIN' && hasProjectAccess(user, projectId);
 }
 
+// Helper function to check if user can view dashboard
+function canViewDashboard(user: any, projectId: string): boolean {
+  if (!user) return false;
+  
+  // All roles can view dashboard if they have project access
+  return hasProjectAccess(user, projectId);
+}
+
+// Helper function to log access attempts for debugging
+function logAccessAttempt(
+  pathname: string, 
+  user: any, 
+  projectId?: string, 
+  action?: string
+): void {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[Middleware] Access attempt:`, {
+      pathname,
+      user: user ? {
+        username: user.username,
+        role: user.role,
+        project_access: user.project_access
+      } : 'none',
+      projectId,
+      action
+    });
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
@@ -76,27 +106,36 @@ export function middleware(request: NextRequest) {
   const publicRoutes = ['/login'];
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
   
-  // Get token from cookies
+  // Static asset routes that should be allowed
+  const staticRoutes = ['/_next', '/favicon.ico', '/tensora_logo.png'];
+  const isStaticRoute = staticRoutes.some(route => pathname.startsWith(route));
+  
+  if (isStaticRoute) {
+    return NextResponse.next();
+  }
+  
+  // Get token and user data from cookies
   const token = request.cookies.get('tensora_count_access_token')?.value;
   const isAuthenticated = token && !isTokenExpired(token);
+  const user = isAuthenticated ? getUserFromCookies(request) : null;
   
   // If accessing login page while authenticated, redirect to home
   if (isPublicRoute && isAuthenticated) {
+    logAccessAttempt(pathname, user, undefined, 'redirect_from_login');
     return NextResponse.redirect(new URL('/', request.url));
   }
   
-  // If accessing protected route without token, redirect to login
+  // If accessing protected route without valid token, redirect to login
   if (!isPublicRoute && !isAuthenticated) {
+    logAccessAttempt(pathname, null, undefined, 'redirect_to_login');
     const loginUrl = new URL('/login', request.url);
     // Store the attempted URL to redirect back after login
     loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);
   }
   
-  // Role-based route protection for authenticated users
-  if (isAuthenticated) {
-    const user = getUserFromCookies(request);
-    
+  // Enhanced role-based route protection for authenticated users
+  if (isAuthenticated && user) {
     // Check for project-specific routes
     const projectRouteMatch = pathname.match(/^\/project\/([^\/]+)(?:\/(.*))?$/);
     
@@ -104,36 +143,53 @@ export function middleware(request: NextRequest) {
       const projectId = projectRouteMatch[1];
       const subPath = projectRouteMatch[2] || '';
       
-      // Check if user has access to this project
+      logAccessAttempt(pathname, user, projectId, `access_project_${subPath || 'settings'}`);
+      
+      // First check: Does user have any access to this project?
       if (!hasProjectAccess(user, projectId)) {
-        // User doesn't have access to this project, redirect to home
+        console.log(`[Middleware] User ${user.username} denied access to project ${projectId} - no project access`);
         return NextResponse.redirect(new URL('/', request.url));
       }
       
-      // If it's a project settings route (not dashboard), check permissions
+      // Second check: Route-specific permissions
       if (!subPath || (subPath && !subPath.startsWith('dashboard'))) {
-        // This is a project settings route
+        // This is a project settings route (e.g., /project/abc or /project/abc/anything-not-dashboard)
         if (!canViewProjectSettings(user, projectId)) {
-          // PROJECT_OPERATOR trying to access settings, redirect to dashboard
+          console.log(`[Middleware] User ${user.username} (${user.role}) redirected from project settings to dashboard for project ${projectId}`);
+          // PROJECT_OPERATOR or users without settings access get redirected to dashboard
           const dashboardUrl = new URL(`/project/${projectId}/dashboard`, request.url);
           return NextResponse.redirect(dashboardUrl);
         }
+      } else if (subPath.startsWith('dashboard')) {
+        // This is a dashboard route
+        if (!canViewDashboard(user, projectId)) {
+          console.log(`[Middleware] User ${user.username} denied dashboard access to project ${projectId}`);
+          return NextResponse.redirect(new URL('/', request.url));
+        }
       }
       
-      // For dashboard routes, just ensure project access (already checked above)
-      if (subPath && subPath.startsWith('dashboard')) {
-        // User has project access, allow dashboard access
-        return NextResponse.next();
-      }
+      // If we get here, user has appropriate access
+      logAccessAttempt(pathname, user, projectId, 'access_granted');
     }
+    
+    // For non-project routes, just ensure user is authenticated (already checked above)
+    logAccessAttempt(pathname, user, undefined, 'general_access');
   }
   
   return NextResponse.next();
 }
 
 export const config = {
-  // Match all routes except static files and API routes
+  // Match all routes except API routes and static files
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|tensora_logo.png).*)'
-  ]
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - tensora_logo.png (logo file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|tensora_logo.png).*)',
+  ],
 };
