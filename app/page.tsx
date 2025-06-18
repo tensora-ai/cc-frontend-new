@@ -7,10 +7,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectCard } from "@/components/project/project-card";
 import { DeleteProjectDialog } from "@/components/project/delete-project-dialog";
 import { CreateProjectDialog } from "@/components/project/create-project-dialog";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Project } from "@/models/project";
 import { apiClient } from "@/lib/api-client";
+import { useAuth } from "@/hooks/useAuth";
 
-export default function HomePage() {
+function HomePageContent() {
+  const auth = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,9 +29,12 @@ export default function HomePage() {
     async function fetchProjects() {
       try {
         setLoading(true);
-        // Call our API client to fetch projects
+        // API client will handle filtering based on user permissions
         const data = await apiClient.getProjects();
-        setProjects(data);
+        
+        // Additional client-side filtering based on user role
+        const filteredProjects = auth.permissions.filterAccessibleProjects(data);
+        setProjects(filteredProjects);
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch projects:", err);
@@ -37,11 +43,16 @@ export default function HomePage() {
       }
     }
     
-    fetchProjects();
-  }, []);
+    if (auth.isAuthenticated) {
+      fetchProjects();
+    }
+  }, [auth.permissions, auth.isAuthenticated]);
 
-  // Function to handle project deletion
+  // Function to handle project deletion (SUPER_ADMIN only)
   const handleDeleteClick = (project: Project) => {
+    if (!auth.permissions.shouldShowDeleteProjectButton()) {
+      return; // Should not happen due to UI restrictions
+    }
     setProjectToDelete(project);
     setDeleteDialogOpen(true);
   };
@@ -49,7 +60,6 @@ export default function HomePage() {
   const confirmDelete = async () => {
     if (projectToDelete) {
       try {
-        // Call our API client to delete the project
         await apiClient.deleteProject(projectToDelete.id);
         
         // Update local state to remove the deleted project
@@ -65,10 +75,9 @@ export default function HomePage() {
     }
   };
 
-  // Function to handle project creation
+  // Function to handle project creation (SUPER_ADMIN only)
   const handleCreateProject = async (id: string, name: string) => {
     try {
-      // Call our API client to create a new project
       const newProject = await apiClient.createProject({ id, name });
       
       // Update local state to include the new project
@@ -87,16 +96,24 @@ export default function HomePage() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-bold text-[var(--tensora-dark)] mb-2">Projects</h2>
-          <p className="text-gray-500">Select a project to view its crowd counting data</p>
+          <p className="text-gray-500">
+            {auth.user?.role === 'PROJECT_OPERATOR' 
+              ? 'Select a project to view its dashboard'
+              : 'Select a project to view its crowd counting data'
+            }
+          </p>
         </div>
-        {/* Prominent New Project button using Tensora dark color */}
-        <Button 
-          onClick={() => setCreateDialogOpen(true)}
-          size="lg"
-          className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)] text-white font-medium shadow-md"
-        >
-          <Plus className="h-5 w-5 mr-2" /> New Project
-        </Button>
+        
+        {/* Only show create button for SUPER_ADMIN */}
+        {auth.permissions.shouldShowCreateProjectButton() && (
+          <Button 
+            onClick={() => setCreateDialogOpen(true)}
+            size="lg"
+            className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)] text-white font-medium shadow-md"
+          >
+            <Plus className="h-5 w-5 mr-2" /> New Project
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -137,6 +154,8 @@ export default function HomePage() {
               key={project.id} 
               project={project} 
               onDeleteClick={handleDeleteClick}
+              showDeleteButton={auth.permissions.shouldShowDeleteProjectButton()}
+              userRole={auth.user?.role}
             />
           ))}
         </div>
@@ -145,23 +164,27 @@ export default function HomePage() {
       {!loading && !error && projects.length === 0 && (
         <div className="bg-[var(--tensora-light)]/5 border border-[var(--tensora-light)]/20 rounded-lg p-8 text-center">
           <Video className="h-12 w-12 mx-auto text-[var(--tensora-medium)] mb-4" />
-          <h3 className="text-lg font-medium text-[var(--tensora-dark)] mb-2">No projects found</h3>
+          <h3 className="text-lg font-medium text-[var(--tensora-dark)] mb-2">No projects available</h3>
           <p className="text-gray-500 mb-4">
-            Get started by creating your first project.
+            {auth.permissions.canCreateProject() 
+              ? "Get started by creating your first project."
+              : "Contact your administrator to get access to projects."
+            }
           </p>
-          {/* Empty state action button using Tensora dark color */}
-          <Button 
-            onClick={() => setCreateDialogOpen(true)}
-            size="lg"
-            className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)] text-white font-medium shadow-md"
-          >
-            <Plus className="h-5 w-5 mr-2" /> Create Project
-          </Button>
+          {auth.permissions.shouldShowCreateProjectButton() && (
+            <Button 
+              onClick={() => setCreateDialogOpen(true)}
+              size="lg"
+              className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)] text-white font-medium shadow-md"
+            >
+              <Plus className="h-5 w-5 mr-2" /> Create Project
+            </Button>
+          )}
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      {projectToDelete && (
+      {/* Delete Confirmation Dialog - Only for SUPER_ADMIN */}
+      {projectToDelete && auth.permissions.shouldShowDeleteProjectButton() && (
         <DeleteProjectDialog
           isOpen={deleteDialogOpen}
           projectName={projectToDelete.name}
@@ -173,12 +196,22 @@ export default function HomePage() {
         />
       )}
 
-      {/* Create Project Dialog */}
-      <CreateProjectDialog
-        isOpen={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        onCreateProject={handleCreateProject}
-      />
+      {/* Create Project Dialog - Only for SUPER_ADMIN */}
+      {auth.permissions.shouldShowCreateProjectButton() && (
+        <CreateProjectDialog
+          isOpen={createDialogOpen}
+          onClose={() => setCreateDialogOpen(false)}
+          onCreateProject={handleCreateProject}
+        />
+      )}
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <ProtectedRoute>
+      <HomePageContent />
+    </ProtectedRoute>
   );
 }
