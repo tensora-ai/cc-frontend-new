@@ -86,7 +86,7 @@ export function LoginForm() {
   // Handle Enter key in password field
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleSubmit(e as any);
+      handleSubmit(e);
     }
   };
 
