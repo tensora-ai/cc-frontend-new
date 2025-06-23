@@ -22,8 +22,3 @@ variable "backend_base_url" {
   type    = string
   description = "The URL of the backend service"
 }
-
-variable "backend_api_key" {
-  type        = string
-  description = "The API key for the backend service"
-}

@@ -1,9 +1,13 @@
 # Stage 1: Building the code  
 FROM node:20.19.2-alpine AS builder
 
+# Set the environment variable for production mode
+ARG NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+
 # Install pnpm
-RUN npm install -g pnpm
-  
+RUN npm install -g pnpm 
+
 WORKDIR /app  
   
 # Copy the package.json and package-lock.json from your project into the Docker container  
@@ -13,7 +17,7 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm i
   
 # Copy the rest of your app's source code from your host to your Docker container  
-COPY . .  
+COPY . .
   
 # Build the Next.js application  
 RUN pnpm run build  

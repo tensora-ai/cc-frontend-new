@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FullscreenDisplayDialog } from "./fullscreen-display-dialog";
 import { formatTimestampForBlobPath, formatUtcToLocalDisplay } from "@/lib/datetime-utils";
+import { apiClient } from "@/lib/api-client";
 
 interface ImageDisplayProps {
   projectId: string;
@@ -41,33 +42,14 @@ export function ImageDisplay({
         setLoading(true);
         setError(null);
         
-        // Construct the blob path directly
-        // Format: {project_id}-{camera_id}-{position}-{timestamp}_image.jpg
+        // Construct the blob name directly
         const formattedTimestamp = formatTimestampForBlobPath(timestamp);
         const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_small.jpg`;
 
         console.log("🔄 Fetching image blob:", blobName);
         
-        // Use the direct blob access endpoint
-        const blobUrl = `/api/blobs/images/${blobName}`;
-        
-        // Get the image blob
-        const response = await fetch(blobUrl);
-        
-        if (!response.ok) {
-          if (response.status === 404) {
-            // Handle missing blob gracefully
-            setError(`No data available for this timestamp`);
-          } else {
-            // Handle other errors
-            setError(`Failed to fetch data: ${response.statusText}`);
-          }
-          setLoading(false);
-          return;
-        }
-
-        // Get image as blob
-        const blob = await response.blob();
+        // ✅ Use apiClient for direct backend access with authentication
+        const blob = await apiClient.fetchImageBlob(blobName);
         
         // Create a local URL for the blob
         const objectUrl = URL.createObjectURL(blob);
@@ -77,7 +59,15 @@ export function ImageDisplay({
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch image:", err);
-        setError("Failed to load camera image. Please try again.");
+        if (err instanceof Error) {
+          if (err.message.includes('not found')) {
+            setError("No data available for this timestamp");
+          } else {
+            setError(err.message);
+          }
+        } else {
+          setError("Failed to load camera image. Please try again.");
+        }
         setLoading(false);
       }
     }
