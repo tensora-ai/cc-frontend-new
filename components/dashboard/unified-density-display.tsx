@@ -6,6 +6,7 @@ import Plot from 'react-plotly.js';
 import { formatTimestampForBlobPath, formatUtcToLocalDisplay } from "@/lib/datetime-utils";
 import { CameraConfig } from "@/models/project";
 import { CameraTimestamp } from "@/models/dashboard";
+import { apiClient } from "@/lib/api-client";
 
 interface UnifiedDensityDisplayProps {
   projectId: string;
@@ -268,27 +269,10 @@ export function UnifiedDensityDisplay({
 
             const formattedTimestamp = formatTimestampForBlobPath(nearestTimestamp);
             const blobName = `${projectId}-${config.camera_id}-${config.position.name}-${formattedTimestamp}_transformed_density.json`;
-            const blobUrl = `/api/blobs/predictions/${blobName}`;
             
             console.log(`🔄 Fetching density for ${config.camera_id} (${config.position.name}) with timestamp: ${nearestTimestamp}`);
             
-            const response = await fetch(blobUrl);
-
-            if (!response.ok) {
-              return {
-                cameraId: config.camera_id,
-                positionId: config.position.name,
-                cameraName: config.name,
-                data: [],
-                bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1 },
-                hasData: false,
-                error: response.status === 404 ? "No data available" : `Fetch failed: ${response.statusText}`
-              };
-            }
-
-            const blob = await response.blob();
-            const text = await blob.text();
-            const rawCoords: CoordinatePoint[] = JSON.parse(text);
+            const rawCoords: CoordinatePoint[] = await apiClient.fetchPredictionJson(blobName);
             
             // Process the coordinates (apply cropping, etc.)
             const { processedCoords, bounds } = processCameraData(rawCoords, config.heatmap_config);
@@ -306,6 +290,16 @@ export function UnifiedDensityDisplay({
 
           } catch (err) {
             console.error(`Failed to fetch density for camera ${config.camera_id}:`, err);
+            let errorMessage = "Failed to load data";
+            
+            if (err instanceof Error) {
+              if (err.message.includes('not found')) {
+                errorMessage = "No data available";
+              } else {
+                errorMessage = err.message;
+              }
+            }
+            
             return {
               cameraId: config.camera_id,
               positionId: config.position.name,
@@ -313,7 +307,7 @@ export function UnifiedDensityDisplay({
               data: [],
               bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1 },
               hasData: false,
-              error: "Failed to load data"
+              error: errorMessage
             };
           }
         });

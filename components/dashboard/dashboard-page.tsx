@@ -7,7 +7,7 @@ import {
   formatUtcDateToIsoString
 } from "@/lib/datetime-utils";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { ArrowLeft, AlertCircle, Shield, BarChart3 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,16 +22,103 @@ import { UnifiedDensityDisplay } from "@/components/dashboard/unified-density-di
 
 // Import types
 import { Project, CameraConfig } from "@/models/project";
-import { 
-  AggregateTimeSeriesResponse, 
+import {
   TimeSeriesPoint, 
   CameraTimestamp 
 } from "@/models/dashboard";
 
+// Import auth components
+import { useAuth } from "@/hooks/useAuth";
+import { apiClient } from "@/lib/api-client";
+
 // Dashboard states
 type DashboardState = 'initial' | 'loading' | 'success' | 'error' | 'empty';
 
-export default function DashboardPage() {
+// Access denied component for dashboard
+function DashboardAccessDenied({ projectId }: { projectId: string }) {
+  const auth = useAuth();
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex items-center mb-6">
+        <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+      </div>
+
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-8 text-center">
+          {/* Icon */}
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+            <Shield className="h-8 w-8 text-red-600" />
+          </div>
+
+          {/* Title */}
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Dashboard Access Denied
+          </h2>
+
+          {/* User info */}
+          <div className="bg-gray-50 rounded-md p-4 mb-6">
+            <p className="text-sm text-gray-600 mb-1">Signed in as:</p>
+            <p className="font-medium text-gray-900">{auth.display.getUserDisplayName()}</p>
+            <p className="text-sm text-gray-500">{auth.display.getUserRoleDisplay()}</p>
+          </div>
+
+          {/* Reason */}
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-medium text-red-800 mb-2">
+                  No Access to Project Dashboard
+                </p>
+                <p className="text-sm text-red-700">
+                  You do not have permission to view the dashboard for project "{projectId}".
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Available actions */}
+          <div className="text-left mb-6">
+            <p className="text-sm font-medium text-gray-900 mb-2">What you can do:</p>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li className="flex items-start">
+                <span className="text-gray-400 mr-2">•</span>
+                Contact your administrator to request access to this project
+              </li>
+              <li className="flex items-start">
+                <span className="text-gray-400 mr-2">•</span>
+                Return to the project list to view projects you have access to
+              </li>
+              <li className="flex items-start">
+                <span className="text-gray-400 mr-2">•</span>
+                Check that you're using the correct project ID
+              </li>
+            </ul>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href="/">
+              <Button className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)] text-white">
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
+              </Button>
+            </Link>
+            <Button variant="outline" onClick={auth.logout}>
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main dashboard content component
+function DashboardPageContent() {
   const params = useParams();
   const projectId = params.project_id as string;
   
@@ -202,39 +289,19 @@ export default function DashboardPage() {
       setDashboardState('loading');
       setDataError(null);
       setClickedTimestamp(null);
-      setTimeSeriesData([]); // Clear previous data
-      setCameraTimestamps([]); // Clear previous camera timestamps
-      setCameraConfigTimestamps({}); // Reset pre-calculated timestamps
+      setTimeSeriesData([]);
+      setCameraTimestamps([]);
+      setCameraConfigTimestamps({});
       
       // Convert local time to UTC for API request
       const endDate = formatUtcDateToIsoString(selectedDate);
       
-      // Make API request
-      const response = await fetch(`/api/projects/${projectId}/areas/${selectedArea}/predictions/aggregate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          end_date: endDate,
-          lookback_hours: lookbackHours,
-          half_moving_avg_size: 0
-        }),
+      const data = await apiClient.aggregatePredictions(projectId, selectedArea, {
+        end_date: endDate,
+        lookback_hours: lookbackHours,
+        half_moving_avg_size: 0
       });
       
-      if (!response.ok) {
-        if (response.status === 422) {
-          setDataError("Not enough prediction data available. Some cameras in this area do not have data while others do.");
-          setDashboardState('error');
-        } else {
-          setDataError("Failed to fetch prediction data. Please try again.");
-          setDashboardState('error');
-        }
-        return;
-      }
-      
-      const data: AggregateTimeSeriesResponse = await response.json();
-
       console.log("Fetched time series data:", data);
       console.log("Available Camera timestamps:", data.camera_timestamps);
       
@@ -258,7 +325,15 @@ export default function DashboardPage() {
       
     } catch (err) {
       console.error("Failed to fetch time series data:", err);
-      setDataError("Failed to fetch prediction data. Please try again.");
+      if (err instanceof Error) {
+        if (err.message.includes('422')) {
+          setDataError("Not enough prediction data available. Some cameras in this area do not have data while others do.");
+        } else {
+          setDataError(err.message);
+        }
+      } else {
+        setDataError("Failed to fetch prediction data. Please try again.");
+      }
       setDashboardState('error');
     }
   };
@@ -321,29 +396,28 @@ export default function DashboardPage() {
     };
   }, [liveMode]); // Only depend on liveMode to avoid infinite loops
   
-  // Load project data
+  // Load project data with enhanced error handling
   useEffect(() => {
     async function fetchProject() {
       try {
         setLoading(true);
-        const response = await fetch(`/api/projects/${projectId}`);
         
-        if (!response.ok) {
-          throw new Error(`Failed to fetch project: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        setProject(data);
+        const projectData = await apiClient.getProject(projectId);
+        setProject(projectData);
         
         // Set the first area as selected by default
-        if (data.areas && data.areas.length > 0) {
-          setSelectedArea(data.areas[0].id);
+        if (projectData.areas && projectData.areas.length > 0) {
+          setSelectedArea(projectData.areas[0].id);
         }
         
         setLoading(false);
       } catch (err) {
-        console.error("Failed to fetch project:", err);
-        setError("Failed to load project data. Please try again later.");
+        console.error("Failed to fetch project details:", err);
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Failed to load project data. Please try again later.");
+        }
         setLoading(false);
       }
     }
@@ -377,9 +451,6 @@ export default function DashboardPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
-          {/*<Link href={`/project/${projectId}`} className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>*/}
           <Skeleton className="h-8 w-48" />
         </div>
         
@@ -391,14 +462,14 @@ export default function DashboardPage() {
     );
   }
   
-  // Error state
+  // Error state - differentiate between permission and other errors
   if (error || !project) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
-          {/*<Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+          <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
             <ArrowLeft className="h-5 w-5" />
-          </Link>*/}
+          </Link>
           <h1 className="text-2xl font-bold">Dashboard</h1>
         </div>
         
@@ -407,13 +478,13 @@ export default function DashboardPage() {
           <div>
             <p className="font-medium">{error || "Project not found"}</p>
             <p className="text-sm mt-1">Please go back and select a valid project.</p>
-            {/*<div className="mt-4">
-              <Link href={`/project/${projectId}`}>
+            <div className="mt-4">
+              <Link href="/">
                 <Button variant="outline">
-                  <ArrowLeft className="h-4 w-4 mr-2" /> Back to Project
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
                 </Button>
               </Link>
-            </div>*/}
+            </div>
           </div>
         </div>
       </div>
@@ -425,9 +496,9 @@ export default function DashboardPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
-          {/*<Link href={`/project/${projectId}`} className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+          <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
             <ArrowLeft className="h-5 w-5" />
-          </Link>*/}
+          </Link>
           <h1 className="text-2xl font-bold text-[var(--tensora-dark)]">{project.name} Dashboard</h1>
         </div>
         
@@ -436,13 +507,6 @@ export default function DashboardPage() {
           <div>
             <p className="font-medium">No monitoring areas configured</p>
             <p className="text-sm mt-1">Please add areas and camera configurations to your project first.</p>
-            {/*<div className="mt-4">
-              <Link href={`/project/${projectId}`}>
-                <Button variant="outline">
-                  <ArrowLeft className="h-4 w-4 mr-2" /> Configure Project
-                </Button>
-              </Link>
-            </div>*/}
           </div>
         </div>
       </div>
@@ -511,8 +575,6 @@ export default function DashboardPage() {
                   timestamp={cameraTimestamp}
                 />
               </div>
-              
-              {/* Note: Individual density panels removed - now using unified display */}
             </div>
           ) : (
             <div className="bg-amber-50 border border-amber-200 text-amber-700 p-4 rounded">
@@ -602,19 +664,19 @@ export default function DashboardPage() {
             />
           </div>
           
-            {/* Unified Density Display */}
-            {area.camera_configs.length > 0 && area.camera_configs.every(cfg => cfg.enable_heatmap) && (
-              <div className="bg-white rounded-lg border p-4 shadow-sm">
-                <h2 className="text-lg font-medium mb-4">Unified Density Map</h2>
-                <UnifiedDensityDisplay
+          {/* Unified Density Display */}
+          {area.camera_configs.length > 0 && area.camera_configs.every(cfg => cfg.enable_heatmap) && (
+            <div className="bg-white rounded-lg border p-4 shadow-sm">
+              <h2 className="text-lg font-medium mb-4">Unified Density Map</h2>
+              <UnifiedDensityDisplay
                 projectId={projectId}
                 areaId={area.id}
                 timestamp={clickedTimestamp || formatUtcDateToIsoString(selectedDate)}
                 cameraConfigs={area.camera_configs}
                 cameraTimestamps={cameraTimestamps}
-                />
-              </div>
-            )}
+              />
+            </div>
+          )}
           
           {/* Camera Configuration Panels */}
           {renderCameraConfigPanels(area.camera_configs)}
@@ -625,11 +687,11 @@ export default function DashboardPage() {
   
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
-      {/* Header with back button and project name */}
+      {/* Header with project name */}
       <div className="flex items-center mb-6">
-        {/*<Link href={`/project/${projectId}`} className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>*/}
+          <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
         <h1 className="text-2xl font-bold text-[var(--tensora-dark)]">{project.name} Dashboard</h1>
       </div>
       
@@ -686,4 +748,51 @@ export default function DashboardPage() {
       )}
     </div>
   );
+}
+
+// Main protected dashboard page component with improved permission check
+export default function DashboardPage() {
+  const params = useParams();
+  const projectId = params.project_id as string;
+  const auth = useAuth();
+
+  // Show loading if auth is still loading
+  if (auth.isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center mb-6">
+          <Skeleton className="h-8 w-48" />
+        </div>
+        
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, redirect to login
+  if (!auth.isAuthenticated) {
+    return null; // Let middleware handle redirect
+  }
+
+  // FIXED: Improved permission check that waits for auth to be ready
+  const canViewDashboard = () => {
+    // Wait for auth to be fully loaded
+    if (auth.isLoading || !auth.user || !projectId) {
+      return false;
+    }
+    
+    // Check permissions only when auth is ready
+    return auth.permissions.canViewDashboard(projectId);
+  };
+
+  // If permission check fails, show access denied
+  if (!canViewDashboard()) {
+    return <DashboardAccessDenied projectId={projectId} />;
+  }
+
+  // Permission check passed, render dashboard
+  return <DashboardPageContent />;
 }

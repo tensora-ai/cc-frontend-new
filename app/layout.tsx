@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import "./globals.css";
@@ -19,18 +20,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="min-h-screen flex flex-col">
-          {/* Header Component */}
-          <Header />
-          
-          {/* Main content */}
-          <div className="flex-grow">
-            {children}
+        <AuthProvider>
+          <div className="min-h-screen flex flex-col">
+            {/* Header Component - will handle auth state internally */}
+            <Header />
+            
+            {/* Main content */}
+            <div className="flex-grow">
+              {children}
+            </div>
+            
+            {/* Footer Component */}
+            <Footer />
           </div>
-          
-          {/* Footer Component */}
-          <Footer />
-        </div>
+        </AuthProvider>
       </body>
     </html>
   );

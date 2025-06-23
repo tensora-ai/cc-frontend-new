@@ -2,14 +2,17 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { ArrowLeft, Camera, Map } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, Camera, Map, AlertCircle, BarChart3, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/hooks/useAuth";
+import { UserRole } from "@/models/auth";
 import { Project, Edge, CountingModel, ModelSchedule, Position, CameraConfig, CameraConfigCreate, CameraConfigUpdate, MaskingConfig } from "@/models/project";
 import { apiClient } from "@/lib/api-client";
 
-// Import our custom components
+// Import your existing components
 import { DashboardButton } from "@/components/project/dashboard-button";
 import { CameraCard } from "@/components/camera/camera-card";
 import { AreaCard } from "@/components/area/area-card";
@@ -27,7 +30,126 @@ import { AddAreaDialog } from "@/components/area/add-area-dialog";
 import { EditAreaDialog } from "@/components/area/edit-area-dialog";
 import { DeleteAreaDialog } from "@/components/area/delete-area-dialog";
 
-export default function ProjectDetailPage() {
+// Component that redirects PROJECT_OPERATOR to dashboard
+function ProjectOperatorRedirect() {
+  const params = useParams();
+  const router = useRouter();
+  const projectId = params.project_id as string;
+
+  useEffect(() => {
+    // Redirect PROJECT_OPERATOR to dashboard immediately
+    router.replace(`/project/${projectId}/dashboard`);
+  }, [projectId, router]);
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <BarChart3 className="h-16 w-16 text-[var(--tensora-medium)] mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-[var(--tensora-dark)] mb-2">
+            Redirecting to Dashboard
+          </h2>
+          <p className="text-gray-600 mb-4">
+            You have access to the dashboard for this project.
+          </p>
+          <Link href={`/project/${projectId}/dashboard`}>
+            <Button className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)]">
+              <BarChart3 className="h-4 w-4 mr-2" /> Go to Dashboard
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Access denied component for project settings
+function ProjectSettingsAccessDenied({ projectId }: { projectId: string }) {
+  const auth = useAuth();
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex items-center mb-6">
+        <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="text-2xl font-bold">Project Settings</h1>
+      </div>
+
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-8 text-center">
+          {/* Icon */}
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-100 mb-6">
+            <Shield className="h-8 w-8 text-amber-600" />
+          </div>
+
+          {/* Title */}
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Project Settings Access Restricted
+          </h2>
+
+          {/* User info */}
+          <div className="bg-gray-50 rounded-md p-4 mb-6">
+            <p className="text-sm text-gray-600 mb-1">Signed in as:</p>
+            <p className="font-medium text-gray-900">{auth.display.getUserDisplayName()}</p>
+            <p className="text-sm text-gray-500">{auth.display.getUserRoleDisplay()}</p>
+          </div>
+
+          {/* Reason */}
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-6">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-amber-400 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-medium text-amber-800 mb-2">
+                  Project Settings Not Available
+                </p>
+                <p className="text-sm text-amber-700">
+                  Your role ({auth.display.getUserRoleDisplay()}) allows you to view the dashboard but not modify project settings.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Available actions */}
+          <div className="text-left mb-6">
+            <p className="text-sm font-medium text-gray-900 mb-2">What you can do:</p>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li className="flex items-start">
+                <span className="text-gray-400 mr-2">•</span>
+                Access the dashboard to view crowd counting data
+              </li>
+              <li className="flex items-start">
+                <span className="text-gray-400 mr-2">•</span>
+                Contact your administrator if you need to modify project settings
+              </li>
+              <li className="flex items-start">
+                <span className="text-gray-400 mr-2">•</span>
+                Return to the project list to view other projects you have access to
+              </li>
+            </ul>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href={`/project/${projectId}/dashboard`}>
+              <Button className="bg-[var(--tensora-dark)] hover:bg-[var(--tensora-medium)] text-white">
+                <BarChart3 className="h-4 w-4 mr-2" /> Go to Dashboard
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back to Projects
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Your existing ProjectDetailPageContent component (renamed for clarity)
+function ProjectDetailPageContent() {
   const params = useParams();
   const projectId = params.project_id as string;
 
@@ -87,9 +209,10 @@ export default function ProjectDetailPage() {
     }
   }, [projectId]);
 
-  // Camera management functions
+  // All your existing handler functions go here...
+  // (I'm omitting them for brevity, but you'd copy all the handler functions from your original file)
 
-  // Function to add a new camera
+  // Camera management functions
   const handleAddCamera = async (
     id: string,
     name: string,
@@ -102,7 +225,6 @@ export default function ProjectDetailPage() {
     if (!project) return;
 
     try {
-      // Create new camera object
       const newCamera = {
         id,
         name,
@@ -113,13 +235,8 @@ export default function ProjectDetailPage() {
         model_schedules: modelSchedules
       };
 
-      // Call API client to add camera
       const updatedProject = await apiClient.addCamera(projectId, newCamera);
-      
-      // Update local state
       setProject(updatedProject);
-      
-      // Close dialog
       setAddCameraDialogOpen(false);
     } catch (err) {
       console.error("Failed to add camera:", err);
@@ -127,8 +244,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-
-  // Function to update an existing camera
   const handleUpdateCamera = async (
     id: string, 
     name: string, 
@@ -141,7 +256,6 @@ export default function ProjectDetailPage() {
     if (!project) return;
     
     try {
-      // Create camera update object
       const updatedCamera = {
         name, 
         resolution,
@@ -151,13 +265,8 @@ export default function ProjectDetailPage() {
         model_schedules: modelSchedules 
       };
       
-      // Call API client to update camera
       const updatedProject = await apiClient.updateCamera(projectId, id, updatedCamera);
-      
-      // Update local state
       setProject(updatedProject);
-      
-      // Close dialog
       setEditCameraDialogOpen(false);
       setSelectedCamera(null);
     } catch (err) {
@@ -166,18 +275,12 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Function to delete a camera
   const handleDeleteCamera = async () => {
     if (!project || !selectedCamera) return;
 
     try {
-      // Call API client to delete camera
       const updatedProject = await apiClient.deleteCamera(projectId, selectedCamera.id);
-      
-      // Update local state
       setProject(updatedProject);
-      
-      // Close dialog and reset selected camera
       setDeleteCameraDialogOpen(false);
       setSelectedCamera(null);
     } catch (err) {
@@ -186,35 +289,21 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Check if a camera has any configurations in any areas
   const cameraHasConfigurations = (cameraId: string): boolean => {
     if (!project) return false;
-
     return project.areas.some(area =>
       area.camera_configs.some(config => config.camera_id === cameraId)
     );
   };
 
   // Area management functions
-
-  // Function to add a new area
   const handleAddArea = async (id: string, name: string) => {
     if (!project) return;
 
     try {
-      // Create new area object
-      const newArea = {
-        id,
-        name
-      };
-
-      // Call API client to add area
+      const newArea = { id, name };
       const updatedProject = await apiClient.addArea(projectId, newArea);
-      
-      // Update local state
       setProject(updatedProject);
-      
-      // Close dialog
       setAddAreaDialogOpen(false);
     } catch (err) {
       console.error("Failed to add area:", err);
@@ -222,23 +311,13 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Function to update an existing area
   const handleUpdateArea = async (id: string, name: string) => {
     if (!project) return;
 
     try {
-      // Create area update object
-      const updatedArea = {
-        name
-      };
-      
-      // Call API client to update area
+      const updatedArea = { name };
       const updatedProject = await apiClient.updateArea(projectId, id, updatedArea);
-      
-      // Update local state
       setProject(updatedProject);
-      
-      // Close dialog
       setEditAreaDialogOpen(false);
       setSelectedArea(null);
     } catch (err) {
@@ -247,22 +326,15 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Function to delete an area
   const handleDeleteArea = async () => {
     if (!project || !selectedArea) return;
 
     try {
-      // Call API client to delete area
       const updatedProject = await apiClient.deleteArea(projectId, selectedArea.id);
-      
-      // Update local state
       setProject(updatedProject);
-      
-      // Close dialog and reset selected area
       setDeleteAreaDialogOpen(false);
       setSelectedArea(null);
       
-      // If we're viewing this area's detail, go back to the project view
       if (selectedAreaId === selectedArea.id) {
         setSelectedAreaId(null);
       }
@@ -273,8 +345,6 @@ export default function ProjectDetailPage() {
   };
 
   // Camera configuration management functions
-
-  // Function to add a camera configuration to an area
   const handleAddCameraConfig = async (
     areaId: string,
     id: string,
@@ -290,12 +360,10 @@ export default function ProjectDetailPage() {
     if (!project) return;
     
     try {
-
       const masking_config: MaskingConfig = {
         edges: maskingEdges || []
       }
 
-      // Create new camera configuration
       const newConfig: CameraConfigCreate = {
         id: id,
         name: name,
@@ -308,10 +376,7 @@ export default function ProjectDetailPage() {
         masking_config: masking_config
       };
       
-      // Call API client to add camera configuration
       const updatedProject = await apiClient.addCameraConfig(projectId, areaId, newConfig);
-      
-      // Update local state
       setProject(updatedProject);
     } catch (err) {
       console.error("Failed to add camera configuration:", err);
@@ -319,11 +384,10 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Function to update a camera configuration
   const handleEditCameraConfig = async (
     areaId: string,
-    configId: string,     // Changed from cameraId, originalPosition
-    configName: string,   // Added parameter
+    configId: string,
+    configName: string,
     cameraId: string,
     position: Position,
     enableHeatmap: boolean,
@@ -335,12 +399,10 @@ export default function ProjectDetailPage() {
     if (!project) return;
     
     try {
-
       const masking_config: MaskingConfig = {
         edges: maskingEdges || []
       }
 
-      // Create updated camera configuration
       const updatedConfig: CameraConfigUpdate = {
         name: configName,
         camera_id: cameraId,
@@ -352,15 +414,13 @@ export default function ProjectDetailPage() {
         masking_config: masking_config
       };
       
-      // Call API client to update camera configuration
       const updatedProject = await apiClient.updateCameraConfig(
         projectId, 
         areaId, 
-        configId,   // Just passing the config ID now
+        configId,
         updatedConfig
       );
       
-      // Update local state
       setProject(updatedProject);
     } catch (err) {
       console.error("Failed to update camera configuration:", err);
@@ -368,22 +428,19 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Function to delete a camera configuration
   const handleDeleteCameraConfig = async (
     areaId: string,
-    configId: string    // Just use config ID
+    configId: string
   ) => {
     if (!project) return;
     
     try {
-      // Call API client to delete camera configuration
       const updatedProject = await apiClient.deleteCameraConfig(
         projectId, 
         areaId, 
-        configId     // Just use the config ID
+        configId
       );
       
-      // Update local state
       setProject(updatedProject);
     } catch (err) {
       console.error("Failed to delete camera configuration:", err);
@@ -391,10 +448,8 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleOpenAddCameraDialog = () => {
-    setAddCameraDialogOpen(true);
-  };
-
+  // Event handlers
+  const handleOpenAddCameraDialog = () => setAddCameraDialogOpen(true);
   const handleOpenEditCameraDialog = (cameraId: string) => {
     const camera = project?.cameras.find(c => c.id === cameraId);
     if (camera) {
@@ -402,7 +457,6 @@ export default function ProjectDetailPage() {
       setEditCameraDialogOpen(true);
     }
   };
-
   const handleOpenDeleteCameraDialog = (cameraId: string) => {
     const camera = project?.cameras.find(c => c.id === cameraId);
     if (camera) {
@@ -411,11 +465,7 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Area event handlers
-  const handleOpenAddAreaDialog = () => {
-    setAddAreaDialogOpen(true);
-  };
-
+  const handleOpenAddAreaDialog = () => setAddAreaDialogOpen(true);
   const handleOpenEditAreaDialog = (areaId: string) => {
     const area = project?.areas.find(a => a.id === areaId);
     if (area) {
@@ -423,7 +473,6 @@ export default function ProjectDetailPage() {
       setEditAreaDialogOpen(true);
     }
   };
-
   const handleOpenDeleteAreaDialog = (areaId: string) => {
     const area = project?.areas.find(a => a.id === areaId);
     if (area) {
@@ -624,16 +673,13 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* CAMERA MANAGEMENT DIALOGS */}
-
-      {/* Dialog for adding a new camera */}
+      {/* All your dialog components */}
       <AddCameraDialog
         isOpen={addCameraDialogOpen}
         onClose={() => setAddCameraDialogOpen(false)}
         onAdd={handleAddCamera}
       />
 
-      {/* Dialog for editing a camera */}
       <EditCameraDialog
         isOpen={editCameraDialogOpen}
         onClose={() => {
@@ -644,7 +690,6 @@ export default function ProjectDetailPage() {
         camera={selectedCamera}
       />
 
-      {/* Dialog for deleting a camera */}
       {selectedCamera && (
         <DeleteCameraDialog
           isOpen={deleteCameraDialogOpen}
@@ -658,16 +703,12 @@ export default function ProjectDetailPage() {
         />
       )}
 
-      {/* AREA MANAGEMENT DIALOGS */}
-
-      {/* Dialog for adding a new area */}
       <AddAreaDialog
         isOpen={addAreaDialogOpen}
         onClose={() => setAddAreaDialogOpen(false)}
         onAdd={handleAddArea}
       />
 
-      {/* Dialog for editing an area */}
       <EditAreaDialog
         isOpen={editAreaDialogOpen}
         onClose={() => {
@@ -678,7 +719,6 @@ export default function ProjectDetailPage() {
         area={selectedArea}
       />
 
-      {/* Dialog for deleting an area */}
       {selectedArea && (
         <DeleteAreaDialog
           isOpen={deleteAreaDialogOpen}
@@ -693,5 +733,44 @@ export default function ProjectDetailPage() {
         />
       )}
     </div>
+  );
+}
+
+// Main component with role-based access control
+export default function ProjectDetailPage() {
+  const params = useParams();
+  const projectId = params.project_id as string;
+  const auth = useAuth();
+
+  // Custom permission check for project settings
+  const canViewProjectSettings = (auth: ReturnType<typeof useAuth>) => {
+    if (!auth.user || !projectId) return false;
+    
+    // PROJECT_OPERATOR cannot view project settings
+    if (auth.user.role === UserRole.PROJECT_OPERATOR) {
+      return false;
+    }
+    
+    // Check if user can view project settings for this specific project
+    return auth.permissions.canViewProjectSettings(projectId);
+  };
+
+  return (
+    <ProtectedRoute
+      projectId={projectId}
+      requireProjectAccess={true}
+    >
+      {/* Role-based routing logic */}
+      {auth.user?.role === UserRole.PROJECT_OPERATOR ? (
+        <ProjectOperatorRedirect />
+      ) : (
+        <ProtectedRoute
+          customPermissionCheck={canViewProjectSettings}
+          fallbackComponent={<ProjectSettingsAccessDenied projectId={projectId} />}
+        >
+          <ProjectDetailPageContent />
+        </ProtectedRoute>
+      )}
+    </ProtectedRoute>
   );
 }
