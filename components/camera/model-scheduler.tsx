@@ -35,7 +35,7 @@ export function ModelScheduler({
             name: `Schedule ${schedules.length + 1}`,
             start: { hour: 18, minute: 0, second: 0 },
             end: { hour: 22, minute: 0, second: 0 },
-            model: CountingModel.ModelNWPU,
+            model: CountingModel.MODEL_20250625,
         };
 
         onSchedulesChange([...schedules, newSchedule]);
@@ -86,8 +86,10 @@ export function ModelScheduler({
                         <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value={CountingModel.Model0725}>Standard (model_0725.pth)</SelectItem>
-                        <SelectItem value={CountingModel.ModelNWPU}>Low Light (model_nwpu.pth)</SelectItem>
+                        <SelectItem value={CountingModel.MODEL_20250625}>Tensora (Juni 2025)</SelectItem>
+                        <SelectItem value={CountingModel.MODEL_20240725}>Tensora (Juli 2024)</SelectItem>
+                        <SelectItem value={CountingModel.MODEL_2020_NWPU}>NWPU (2020)</SelectItem>
+                        <SelectItem value={CountingModel.MODEL_2020_QNRF}>QNRF (2020)</SelectItem>
                     </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">
@@ -214,8 +216,10 @@ export function ModelScheduler({
                                             <SelectValue placeholder="Select a model" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value={CountingModel.ModelNWPU}>Standard (model_nwpu.pth)</SelectItem>
-                                            <SelectItem value={CountingModel.Model0725}>Low Light (model_0725.pth)</SelectItem>
+                                            <SelectItem value={CountingModel.MODEL_20250625}>Tensora (Juni 2025)</SelectItem>
+                                            <SelectItem value={CountingModel.MODEL_20240725}>Tensora (Juli 2024)</SelectItem>
+                                            <SelectItem value={CountingModel.MODEL_2020_NWPU}>NWPU (2020)</SelectItem>
+                                            <SelectItem value={CountingModel.MODEL_2020_QNRF}>QNRF (2020)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
