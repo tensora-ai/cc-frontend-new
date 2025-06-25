@@ -47,7 +47,7 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
   const [coordZ, setCoordZ] = useState("");
 
   // Model scheduling
-  const [defaultModel, setDefaultModel] = useState<CountingModel>(CountingModel.Model0725);
+  const [defaultModel, setDefaultModel] = useState<CountingModel>(CountingModel.MODEL_20250625);
   const [modelSchedules, setModelSchedules] = useState<ModelSchedule[]>([]);
 
   // Validation state
@@ -161,7 +161,7 @@ export function AddCameraDialog({ isOpen, onClose, onAdd }: AddCameraDialogProps
     setCoordX("");
     setCoordY("");
     setCoordZ("");
-    setDefaultModel(CountingModel.Model0725);
+    setDefaultModel(CountingModel.MODEL_20250625);
     setModelSchedules([]);
 
     // Close dialog

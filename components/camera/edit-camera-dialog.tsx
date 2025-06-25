@@ -55,7 +55,7 @@ export function EditCameraDialog({ isOpen, onClose, onUpdate, camera }: EditCame
   const [coordZ, setCoordZ] = useState("");
 
   // Model scheduling
-  const [defaultModel, setDefaultModel] = useState<CountingModel>(CountingModel.Model0725);
+  const [defaultModel, setDefaultModel] = useState<CountingModel>(CountingModel.MODEL_20250625);
   const [modelSchedules, setModelSchedules] = useState<ModelSchedule[]>([]);
 
   // Validation state
@@ -98,7 +98,7 @@ export function EditCameraDialog({ isOpen, onClose, onUpdate, camera }: EditCame
       if (camera.default_model) {
         setDefaultModel(camera.default_model);
       } else {
-        setDefaultModel(CountingModel.Model0725);
+        setDefaultModel(CountingModel.MODEL_20250625);
       }
 
       if (camera.model_schedules) {
