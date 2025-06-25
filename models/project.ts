@@ -29,8 +29,10 @@ export interface CameraConfig {
 }
 
 export enum CountingModel {
-  Model0725 = "model_0725.pth",
-  ModelNWPU = "model_nwpu.pth"
+  MODEL_2020_QNRF = "model_2020_qnrf.pth",
+  MODEL_2020_NWPU = "model_2020_nwpu.pth",
+  MODEL_20240725 = "model_20240725.pth",
+  MODEL_20250625 = "model_20250625.pth",
 }
 
 export interface TimeAtDay {
