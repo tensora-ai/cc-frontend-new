@@ -22,10 +22,6 @@ export function CameraCard({
   onEdit,
   onDelete
 }: CameraCardProps) {
-  const getModelName = (model: CountingModel) => {
-    return model === CountingModel.Model0725 ? "Standard" : "Low Light";
-  };
-
   const hasSchedules = modelSchedules && modelSchedules.length > 0;
 
   return (
@@ -64,7 +60,7 @@ export function CameraCard({
               <div className="flex items-center gap-1">
                 <span className="text-xs font-medium text-gray-600">Model:</span>
                 <span className="px-2 py-0.5 bg-[var(--tensora-light)]/10 rounded text-xs">
-                  {getModelName(defaultModel)}
+                  {defaultModel}
                 </span>
               </div>
 
