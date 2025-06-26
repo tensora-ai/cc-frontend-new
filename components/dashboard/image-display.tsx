@@ -44,7 +44,7 @@ export function ImageDisplay({
         
         // Construct the blob name directly
         const formattedTimestamp = formatTimestampForBlobPath(timestamp);
-        const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}_small.jpg`;
+        const blobName = `${projectId}-${cameraId}-${positionId}-${formattedTimestamp}.jpg`;
 
         console.log("🔄 Fetching image blob:", blobName);
         
