@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { 
   getLocalNow, 
@@ -151,6 +151,10 @@ function DashboardPageContent() {
   const [clickedTimestamp, setClickedTimestamp] = useState<string | null>(null);
   const [cameraConfigTimestamps, setCameraConfigTimestamps] = useState<Record<string, string | null>>({});
 
+  // Use refs to track if we're currently processing a request to prevent race conditions
+  const isProcessingRequest = useRef(false);
+  const currentRequestId = useRef(0);
+
   // Check if we have valid prediction data
   const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;
 
@@ -253,12 +257,22 @@ function DashboardPageContent() {
     setClickedTimestamp(timestamp);
   };
 
-  // Atomic handleApplySettings function
-  const handleApplySettings = async () => {
+  // FIXED: Atomic handleApplySettings function with proper race condition handling
+  const handleApplySettings = useCallback(async () => {
     if (!projectId || !selectedArea) return;
     
+    // Prevent multiple simultaneous requests
+    if (isProcessingRequest.current) {
+      console.log("🚫 Request already in progress, skipping");
+      return;
+    }
+    
+    // Generate unique request ID to handle race conditions
+    const requestId = ++currentRequestId.current;
+    isProcessingRequest.current = true;
+    
     try {
-      console.log("🔄 Starting fresh dashboard request");
+      console.log(`🔄 Starting fresh dashboard request #${requestId}`);
       
       // STEP 1: Complete state reset - blank slate
       setDashboardState('loading');
@@ -268,9 +282,9 @@ function DashboardPageContent() {
       setCameraConfigTimestamps({});
       setClickedTimestamp(null);
       
-      // STEP 2: Make API request
+      // STEP 2: Make API request with current state values
       const endDate = formatUtcDateToIsoString(selectedDate);
-      console.log("📡 API Request:", { endDate, lookbackHours, selectedArea });
+      console.log(`📡 API Request #${requestId}:`, { endDate, lookbackHours, selectedArea });
       
       const data = await apiClient.aggregatePredictions(projectId, selectedArea, {
         end_date: endDate,
@@ -278,7 +292,13 @@ function DashboardPageContent() {
         half_moving_avg_size: 0
       });
       
-      console.log("📊 API Response:", {
+      // Check if this request is still the latest one
+      if (requestId !== currentRequestId.current) {
+        console.log(`🚫 Request #${requestId} is outdated, ignoring response`);
+        return;
+      }
+      
+      console.log(`📊 API Response #${requestId}:`, {
         timeSeriesPoints: data.time_series?.length || 0,
         cameraTimestamps: data.camera_timestamps?.length || 0
       });
@@ -297,7 +317,7 @@ function DashboardPageContent() {
       
       // STEP 5: Auto-select latest timestamp and calculate camera timestamps
       const latestTimestamp = data.time_series[data.time_series.length - 1].timestamp;
-      console.log("🎯 Auto-selecting latest timestamp:", latestTimestamp);
+      console.log(`🎯 Auto-selecting latest timestamp: ${latestTimestamp}`);
       
       // Calculate camera config timestamps immediately with fresh data
       const selectedAreaData = project?.areas.find(area => area.id === selectedArea);
@@ -322,10 +342,16 @@ function DashboardPageContent() {
         setClickedTimestamp(latestTimestamp);
       }
       
-      console.log("✅ Dashboard update complete");
+      console.log(`✅ Dashboard update complete #${requestId}`);
       
     } catch (err) {
-      console.error("❌ Dashboard request failed:", err);
+      // Check if this request is still the latest one
+      if (requestId !== currentRequestId.current) {
+        console.log(`🚫 Request #${requestId} error ignored (outdated)`);
+        return;
+      }
+      
+      console.error(`❌ Dashboard request #${requestId} failed:`, err);
       
       // Clear everything on error
       setTimeSeriesData([]);
@@ -343,8 +369,10 @@ function DashboardPageContent() {
         setDataError("Failed to fetch prediction data. Please try again.");
       }
       setDashboardState('error');
+    } finally {
+      isProcessingRequest.current = false;
     }
-  };
+  }, [projectId, selectedArea, selectedDate, lookbackHours, project, findNearestTimestampFromArray]);
 
   // Handle live mode toggle
   const handleLiveModeToggle = (enabled: boolean) => {
@@ -361,17 +389,17 @@ function DashboardPageContent() {
     }
   };
 
-  // Live mode timer effect
+  // FIXED: Live mode timer effect with proper dependencies
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
     let countdownId: NodeJS.Timeout;
 
     if (liveMode) {
-      // Main refresh timer
+      // Main refresh timer - use latest handleApplySettings function
       intervalId = setInterval(() => {
         console.log("🔄 Live mode refresh");
         setSelectedDate(getLocalNow());
-        // handleApplySettings will handle all state management
+        // Call handleApplySettings directly - it will use current state
         handleApplySettings();
         setLiveModeCountdown(30);
       }, 30000);
@@ -386,7 +414,7 @@ function DashboardPageContent() {
       if (intervalId) clearInterval(intervalId);
       if (countdownId) clearInterval(countdownId);
     };
-  }, [liveMode]); // Only depend on liveMode
+  }, [liveMode, handleApplySettings]); // FIXED: Include handleApplySettings in dependencies
   
   // Load project data with enhanced error handling
   useEffect(() => {
@@ -712,6 +740,9 @@ function DashboardPageContent() {
             // Disable live mode when switching areas to avoid confusion
             setLiveMode(false);
             setLiveModeCountdown(30);
+            // Reset processing state
+            isProcessingRequest.current = false;
+            currentRequestId.current = 0;
           }}
           className="w-full"
         >
