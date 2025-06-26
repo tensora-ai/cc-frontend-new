@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { 
   getLocalNow, 
@@ -151,42 +151,38 @@ function DashboardPageContent() {
   const [clickedTimestamp, setClickedTimestamp] = useState<string | null>(null);
   const [cameraConfigTimestamps, setCameraConfigTimestamps] = useState<Record<string, string | null>>({});
 
+  // Use refs to track if we're currently processing a request to prevent race conditions
+  const isProcessingRequest = useRef(false);
+  const currentRequestId = useRef(0);
+
   // Check if we have valid prediction data
   const hasValidData = dashboardState === 'success' && timeSeriesData.length > 0;
 
-  // Utility function to find nearest timestamp - memoized with useCallback
-  const findNearestTimestamp = useCallback((
+  // Helper function to find nearest timestamp from array - memoized with useCallback
+  const findNearestTimestampFromArray = useCallback((
     cameraId: string, 
     positionId: string, 
-    targetTimestamp: string
+    targetTimestamp: string,
+    availableTimestamps: CameraTimestamp[]
   ): string | null => {
+    
+    console.log(`🔍 Finding nearest timestamp for ${cameraId}-${positionId}, target: ${targetTimestamp}`);
 
-    console.log(`🔍 Finding nearest timestamp for camera ${cameraId} at position ${positionId} for target time: ${targetTimestamp}`);
-
-    // If there are no timestamps, return null
-    if (cameraTimestamps.length === 0) {
-      console.warn("No camera timestamps available to search.");
-      return null;
-    }
-
-    // Filter timestamps for this camera/position
-    const relevantTimestamps = cameraTimestamps.filter(
+    // Filter timestamps for this camera/position from the provided array
+    const relevantTimestamps = availableTimestamps.filter(
       ct => ct.camera_id === cameraId && ct.position === positionId
     );
 
-    // If no relevant timestamps, return null
     if (relevantTimestamps.length === 0) {
-      console.warn(`No timestamps found for camera ${cameraId} at position ${positionId}.`);
+      console.warn(`⚠️ No timestamps found for ${cameraId}-${positionId}`);
       return null;
     }
     
-    // Helper function to ensure proper UTC parsing
+    // Helper function to parse UTC timestamps
     const parseUtcTimestamp = (timestamp: string): number => {
-      // Ensure the timestamp ends with 'Z' for proper UTC parsing
       const utcTimestamp = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z';
       const date = new Date(utcTimestamp);
       
-      // Validate the date
       if (isNaN(date.getTime())) {
         console.error(`Invalid timestamp: ${timestamp}`);
         return 0;
@@ -195,59 +191,51 @@ function DashboardPageContent() {
       return date.getTime();
     };
     
-    // Get the target time in milliseconds (UTC)
+    // Find closest match
     const targetTime = parseUtcTimestamp(targetTimestamp);
-
-    // Calculate differences and sort by closest match
-    const timestampsWithDifference = relevantTimestamps.map(ct => {
-      const timestampTime = parseUtcTimestamp(ct.timestamp);
-      const difference = Math.abs(timestampTime - targetTime);
-      
-      return {
-        ...ct,
-        timestampTime,
-        difference
-      };
-    });
+    let closest = relevantTimestamps[0];
+    let smallestDiff = Math.abs(parseUtcTimestamp(closest.timestamp) - targetTime);
     
-    // Sort by smallest difference
-    timestampsWithDifference.sort((a, b) => a.difference - b.difference);
+    for (const ct of relevantTimestamps) {
+      const diff = Math.abs(parseUtcTimestamp(ct.timestamp) - targetTime);
+      if (diff < smallestDiff) {
+        smallestDiff = diff;
+        closest = ct;
+      }
+    }
     
-    const closest = timestampsWithDifference[0];
-    const result = closest.timestamp;
+    console.log(`✅ Found: ${closest.timestamp} (diff: ${smallestDiff}ms)`);
+    return closest.timestamp;
+  }, []);
 
-    console.log(`✅ Nearest timestamp found: ${result} (diff: ${closest.difference}ms) for camera ${cameraId} at position ${positionId}`);
-
-    return result;
-  }, [cameraTimestamps]);
-
-  // Calculate timestamps for all camera configs when relevant state changes
+  // Calculate timestamps for camera configs when user clicks on graph
   useEffect(() => {
-    if (!project || !selectedArea) return;
+    // Only handle user clicks on the graph, not initial data loading
+    if (!clickedTimestamp || !project || !selectedArea || cameraTimestamps.length === 0) {
+      return;
+    }
     
-    // Only proceed if we have camera timestamps data
-    if (cameraTimestamps.length === 0) return;
-
-    console.log("🔄 Recalculating timestamps for clickedTimestamp:", clickedTimestamp);
+    console.log("👆 User clicked on graph, updating camera timestamps for:", clickedTimestamp);
     
-    const targetTimestamp = clickedTimestamp || formatUtcDateToIsoString(selectedDate);
     const selectedAreaData = project.areas.find(area => area.id === selectedArea);
-    
     if (!selectedAreaData) return;
 
     const newTimestamps: Record<string, string | null> = {};
     
     selectedAreaData.camera_configs.forEach((config) => {
       const key = `${config.camera_id}-${config.position.name}`;
-      const timestamp = findNearestTimestamp(config.camera_id, config.position.name, targetTimestamp);
+      const timestamp = findNearestTimestampFromArray(
+        config.camera_id, 
+        config.position.name, 
+        clickedTimestamp,
+        cameraTimestamps
+      );
       newTimestamps[key] = timestamp;
     });
 
-    // Update timestamps directly
     setCameraConfigTimestamps(newTimestamps);
-    console.log("🔄 Updated camera config timestamps:", newTimestamps);
     
-  }, [clickedTimestamp, project, selectedArea, cameraTimestamps, selectedDate, findNearestTimestamp]);
+  }, [clickedTimestamp, project, selectedArea, cameraTimestamps, findNearestTimestampFromArray]);
   
   // Handle date changes from control panel
   const handleDateChange = (newDate: Date) => {
@@ -265,36 +253,38 @@ function DashboardPageContent() {
   
   const handleGraphPointClick = (timestamp: string) => {
     console.log("🔍 Graph clicked with timestamp:", timestamp);
-    
-    // Clear camera config timestamps first to force re-render
-    setCameraConfigTimestamps({});
-    
-    // Set the clicked timestamp directly
+    // Just set the timestamp - the useEffect will handle the rest
     setClickedTimestamp(timestamp);
   };
 
-  // Auto-select latest data point when data loads
-  const selectLatestDataPoint = useCallback(() => {
-    if (timeSeriesData.length > 0) {
-      const latestPoint = timeSeriesData[timeSeriesData.length - 1];
-      setClickedTimestamp(latestPoint.timestamp);
-    }
-  }, [timeSeriesData]);
-
-  // Handle apply button - fetch data
-  const handleApplySettings = async () => {
+  // FIXED: Atomic handleApplySettings function with proper race condition handling
+  const handleApplySettings = useCallback(async () => {
     if (!projectId || !selectedArea) return;
     
+    // Prevent multiple simultaneous requests
+    if (isProcessingRequest.current) {
+      console.log("🚫 Request already in progress, skipping");
+      return;
+    }
+    
+    // Generate unique request ID to handle race conditions
+    const requestId = ++currentRequestId.current;
+    isProcessingRequest.current = true;
+    
     try {
+      console.log(`🔄 Starting fresh dashboard request #${requestId}`);
+      
+      // STEP 1: Complete state reset - blank slate
       setDashboardState('loading');
       setDataError(null);
-      setClickedTimestamp(null);
       setTimeSeriesData([]);
       setCameraTimestamps([]);
       setCameraConfigTimestamps({});
+      setClickedTimestamp(null);
       
-      // Convert local time to UTC for API request
+      // STEP 2: Make API request with current state values
       const endDate = formatUtcDateToIsoString(selectedDate);
+      console.log(`📡 API Request #${requestId}:`, { endDate, lookbackHours, selectedArea });
       
       const data = await apiClient.aggregatePredictions(projectId, selectedArea, {
         end_date: endDate,
@@ -302,29 +292,73 @@ function DashboardPageContent() {
         half_moving_avg_size: 0
       });
       
-      console.log("Fetched time series data:", data);
-      console.log("Available Camera timestamps:", data.camera_timestamps);
+      // Check if this request is still the latest one
+      if (requestId !== currentRequestId.current) {
+        console.log(`🚫 Request #${requestId} is outdated, ignoring response`);
+        return;
+      }
       
-      // Check if we got empty time series
+      console.log(`📊 API Response #${requestId}:`, {
+        timeSeriesPoints: data.time_series?.length || 0,
+        cameraTimestamps: data.camera_timestamps?.length || 0
+      });
+      
+      // STEP 3: Validate response
       if (!data.time_series || data.time_series.length === 0) {
         setDataError("No prediction data available within the selected time range.");
         setDashboardState('empty');
-        setTimeSeriesData([]);
-        setCameraTimestamps([]);
-      } else {
-        // Success - we have valid data
-        setTimeSeriesData(data.time_series);
-        setCameraTimestamps(data.camera_timestamps || []);
-        setDashboardState('success');
-        
-        // Auto-select the latest data point when data is loaded
-        setTimeout(() => {
-          selectLatestDataPoint();
-        }, 100);
+        return;
       }
       
+      // STEP 4: Atomic state update with new data
+      setTimeSeriesData(data.time_series);
+      setCameraTimestamps(data.camera_timestamps || []);
+      setDashboardState('success');
+      
+      // STEP 5: Auto-select latest timestamp and calculate camera timestamps
+      const latestTimestamp = data.time_series[data.time_series.length - 1].timestamp;
+      console.log(`🎯 Auto-selecting latest timestamp: ${latestTimestamp}`);
+      
+      // Calculate camera config timestamps immediately with fresh data
+      const selectedAreaData = project?.areas.find(area => area.id === selectedArea);
+      if (selectedAreaData && data.camera_timestamps) {
+        const newCameraConfigTimestamps: Record<string, string | null> = {};
+        
+        selectedAreaData.camera_configs.forEach((config) => {
+          const key = `${config.camera_id}-${config.position.name}`;
+          const nearestTimestamp = findNearestTimestampFromArray(
+            config.camera_id, 
+            config.position.name, 
+            latestTimestamp,
+            data.camera_timestamps // Use fresh data directly
+          );
+          newCameraConfigTimestamps[key] = nearestTimestamp;
+          
+          console.log(`📷 ${key}: ${nearestTimestamp}`);
+        });
+        
+        // Set everything at once to avoid race conditions
+        setCameraConfigTimestamps(newCameraConfigTimestamps);
+        setClickedTimestamp(latestTimestamp);
+      }
+      
+      console.log(`✅ Dashboard update complete #${requestId}`);
+      
     } catch (err) {
-      console.error("Failed to fetch time series data:", err);
+      // Check if this request is still the latest one
+      if (requestId !== currentRequestId.current) {
+        console.log(`🚫 Request #${requestId} error ignored (outdated)`);
+        return;
+      }
+      
+      console.error(`❌ Dashboard request #${requestId} failed:`, err);
+      
+      // Clear everything on error
+      setTimeSeriesData([]);
+      setCameraTimestamps([]);
+      setCameraConfigTimestamps({});
+      setClickedTimestamp(null);
+      
       if (err instanceof Error) {
         if (err.message.includes('422')) {
           setDataError("Not enough prediction data available. Some cameras in this area do not have data while others do.");
@@ -335,8 +369,10 @@ function DashboardPageContent() {
         setDataError("Failed to fetch prediction data. Please try again.");
       }
       setDashboardState('error');
+    } finally {
+      isProcessingRequest.current = false;
     }
-  };
+  }, [projectId, selectedArea, selectedDate, lookbackHours, project, findNearestTimestampFromArray]);
 
   // Handle live mode toggle
   const handleLiveModeToggle = (enabled: boolean) => {
@@ -344,57 +380,41 @@ function DashboardPageContent() {
     
     if (enabled) {
       console.log("🔴 Live mode enabled");
-
-      // When enabling live mode, update to current time and fetch latest data
       setSelectedDate(getLocalNow());
-      setClickedTimestamp(null);
-      
+      // The handleApplySettings call will handle all the state management
       handleApplySettings();
-      
-      // Reset countdown
       setLiveModeCountdown(30);
     } else {
-      // When disabling live mode, reset countdown
       setLiveModeCountdown(30);
     }
   };
 
-  // Live mode timer effect
+  // FIXED: Live mode timer effect with proper dependencies
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
     let countdownId: NodeJS.Timeout;
 
     if (liveMode) {
-      // Main refresh timer - refresh data every 30 seconds
+      // Main refresh timer - use latest handleApplySettings function
       intervalId = setInterval(() => {
-        // Update to current time
+        console.log("🔄 Live mode refresh");
         setSelectedDate(getLocalNow());
-        setClickedTimestamp(null);
-        
-        // Fetch fresh data
+        // Call handleApplySettings directly - it will use current state
         handleApplySettings();
-        
-        // Reset countdown
         setLiveModeCountdown(30);
       }, 30000);
 
-      // Countdown timer - update every second
+      // Countdown timer
       countdownId = setInterval(() => {
-        setLiveModeCountdown(prev => {
-          if (prev <= 1) {
-            return 30; // Reset to 30 when it reaches 0
-          }
-          return prev - 1;
-        });
+        setLiveModeCountdown(prev => prev <= 1 ? 30 : prev - 1);
       }, 1000);
     }
 
-    // Cleanup timers when live mode is disabled or component unmounts
     return () => {
       if (intervalId) clearInterval(intervalId);
       if (countdownId) clearInterval(countdownId);
     };
-  }, [liveMode]); // Only depend on liveMode to avoid infinite loops
+  }, [liveMode, handleApplySettings]); // FIXED: Include handleApplySettings in dependencies
   
   // Load project data with enhanced error handling
   useEffect(() => {
@@ -720,6 +740,9 @@ function DashboardPageContent() {
             // Disable live mode when switching areas to avoid confusion
             setLiveMode(false);
             setLiveModeCountdown(30);
+            // Reset processing state
+            isProcessingRequest.current = false;
+            currentRequestId.current = 0;
           }}
           className="w-full"
         >
