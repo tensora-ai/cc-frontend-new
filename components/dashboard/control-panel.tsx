@@ -199,7 +199,7 @@ export function ControlPanel({
           <Slider
             value={[lookbackHours]}
             min={1}
-            max={10}
+            max={24}
             step={1}
             onValueChange={(values) => onLookbackChange(values[0])}
             className="w-full"
