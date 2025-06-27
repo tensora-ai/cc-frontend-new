@@ -7,13 +7,6 @@ export interface TimeSeriesPoint {
   value: number;
 }
 
-export interface TimeSeriesPointWithLocalTime {
-  time: Date,
-  count: number,
-  timeFormatted: string,
-  localTimeString: string
-}
-
 export interface AggregateTimeSeriesRequest {
   end_date: string;  // UTC ISO format
   lookback_hours: number;
@@ -31,30 +24,30 @@ export interface AggregateTimeSeriesResponse {
   camera_timestamps: CameraTimestamp[];
 }
 
-
-export interface DensityPoint {
-  x: number;
-  y: number;
-  value: number;
-}
-
-export interface HeatmapData {
-  points: DensityPoint[];
-  dimensions: {
-    width: number;
-    height: number;
-  };
-  timestamp: string;  // UTC ISO format
-}
-
-export interface CameraImage {
-  url: string;
-  timestamp: string;  // UTC ISO format
-  camera_id: string;
-  position: string;
-}
-
 export interface DensityResponse {
   data: number[][];  // 2D array of density values
   timestamp: string;  // UTC ISO format
 }
+
+// Simple, predictable state machine
+export type DashboardState = 
+  | { type: 'IDLE' }
+  | { type: 'LOADING' }
+  | { type: 'SUCCESS'; data: DashboardData }
+  | { type: 'ERROR'; error: string };
+
+export type DashboardData = {
+  timeSeries: TimeSeriesPoint[];
+  cameraTimestamps: CameraTimestamp[];
+  selectedTimestamp: string; // Always have a selected timestamp
+};
+
+export type DashboardSettings = {
+  date: Date;
+  lookbackHours: number;
+};
+
+export type LiveModeState = {
+  enabled: boolean;
+  countdown: number;
+};
