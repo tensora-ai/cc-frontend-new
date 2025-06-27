@@ -199,7 +199,7 @@ export function ControlPanel({
           <Slider
             value={[lookbackHours]}
             min={1}
-            max={10}
+            max={24}
             step={1}
             onValueChange={(values) => onLookbackChange(values[0])}
             className="w-full"
@@ -275,7 +275,7 @@ export function ControlPanel({
               <span className="text-green-700 font-medium text-sm">Live Mode Active</span>
             </div>
             <span className="text-green-600 text-sm">
-              Auto-refreshing every 30 seconds
+              Auto-refreshing every 15 seconds {/* Changed from 30 to 15 */}
             </span>
           </div>
           <div className="text-green-700 font-mono text-sm">
