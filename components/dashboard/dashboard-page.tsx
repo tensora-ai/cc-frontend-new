@@ -16,7 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Project } from "@/models/project";
 import { TimeSeriesPoint, CameraTimestamp, DashboardState, DashboardSettings, LiveModeState, DashboardData } from "@/models/dashboard";
 
-// Import UI components
+// Import UI components (we'll reuse these)
 import { ControlPanel } from "@/components/dashboard/control-panel";
 import { StatsPanel } from "@/components/dashboard/stats-panel";
 import { CrowdGraph } from "@/components/dashboard/crowd-graph";
@@ -74,23 +74,6 @@ function DashboardPageContent() {
   const params = useParams();
   const auth = useAuth();
   const projectId = params.project_id as string;
-
-  // Check permissions early
-  if (!auth.permissions.canViewDashboard(projectId)) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center mb-6">
-          <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="text-2xl font-bold">Access Denied</h1>
-        </div>
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          <p className="font-medium">You don't have permission to view this dashboard</p>
-        </div>
-      </div>
-    );
-  }
 
   // Core state - single sources of truth
   const [project, setProject] = useState<Project | null>(null);
@@ -295,6 +278,23 @@ function DashboardPageContent() {
     setDashboardState({ type: 'IDLE' });
     setLiveMode({ enabled: false, countdown: 30 });
   }, []);
+
+  // Check permissions before rendering dashboard
+  if (!auth.permissions.canViewDashboard(projectId)) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center mb-6">
+          <Link href="/" className="text-[var(--tensora-medium)] hover:text-[var(--tensora-dark)] mr-4">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+        </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <p className="font-medium">You don't have permission to view this dashboard</p>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (!project) {
