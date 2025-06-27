@@ -275,7 +275,7 @@ export function ControlPanel({
               <span className="text-green-700 font-medium text-sm">Live Mode Active</span>
             </div>
             <span className="text-green-600 text-sm">
-              Auto-refreshing every 30 seconds
+              Auto-refreshing every 15 seconds {/* Changed from 30 to 15 */}
             </span>
           </div>
           <div className="text-green-700 font-mono text-sm">

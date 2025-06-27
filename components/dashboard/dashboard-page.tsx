@@ -83,9 +83,10 @@ function DashboardPageContent() {
     date: getLocalNow(),
     lookbackHours: 3
   });
+
   const [liveMode, setLiveMode] = useState<LiveModeState>({
     enabled: false,
-    countdown: 30
+    countdown: 15
   });
 
   // Refs for cleanup
@@ -196,20 +197,20 @@ function DashboardPageContent() {
     // Main refresh interval
     intervalRef.current = setInterval(() => {
       console.log('🔄 Live mode refresh');
-      const currentTime = getLocalNow();
-      setSettings(prev => ({ ...prev, date: currentTime }));
+      const currentTimePlusOneMinute = new Date(getLocalNow().getTime() + 60 * 1000);
+      setSettings(prev => ({ ...prev, date: currentTimePlusOneMinute }));
       fetchDashboardData(projectId, selectedArea, { 
         ...settings, 
-        date: currentTime 
+        date: currentTimePlusOneMinute 
       });
-      setLiveMode(prev => ({ ...prev, countdown: 30 }));
-    }, 30000);
+      setLiveMode(prev => ({ ...prev, countdown: 15 }));
+    }, 15000);
 
     // Countdown timer
     countdownRef.current = setInterval(() => {
       setLiveMode(prev => ({ 
         ...prev, 
-        countdown: prev.countdown <= 1 ? 30 : prev.countdown - 1 
+        countdown: prev.countdown <= 1 ? 15 : prev.countdown - 1
       }));
     }, 1000);
 
@@ -260,13 +261,13 @@ function DashboardPageContent() {
     setLiveMode(prev => ({ ...prev, enabled }));
     
     if (enabled) {
-      // Immediately refresh when starting live mode
-      const currentTime = getLocalNow();
-      setSettings(prev => ({ ...prev, date: currentTime }));
+      // Immediately refresh when starting live mode with current time + 1 minute
+      const currentTimePlusOneMinute = new Date(getLocalNow().getTime() + 60 * 1000);
+      setSettings(prev => ({ ...prev, date: currentTimePlusOneMinute }));
       if (projectId && selectedArea) {
         fetchDashboardData(projectId, selectedArea, { 
           ...settings, 
-          date: currentTime 
+          date: currentTimePlusOneMinute 
         });
       }
     }
