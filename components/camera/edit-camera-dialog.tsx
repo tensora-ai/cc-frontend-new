@@ -51,8 +51,8 @@ export function EditCameraDialog({ isOpen, onClose, onUpdate, camera }: EditCame
   const [sensorWidth, setSensorWidth] = useState("");
   const [sensorHeight, setSensorHeight] = useState("");
   const [coordX, setCoordX] = useState("");
-  const [coordY, setCoordY] = useState("");
   const [coordZ, setCoordZ] = useState("");
+  const [coordY, setCoordY] = useState("");
 
   // Model scheduling
   const [defaultModel, setDefaultModel] = useState<CountingModel>(CountingModel.MODEL_20250625);
@@ -86,12 +86,13 @@ export function EditCameraDialog({ isOpen, onClose, onUpdate, camera }: EditCame
       // Set coordinates if exists
       if (camera.coordinates_3d) {
         setCoordX(camera.coordinates_3d[0].toString());
-        setCoordY(camera.coordinates_3d[1].toString());
-        setCoordZ(camera.coordinates_3d[2].toString());
+        setCoordZ(camera.coordinates_3d[1].toString());
+        setCoordY(camera.coordinates_3d[2].toString());
+        
       } else {
         setCoordX("");
-        setCoordY("");
         setCoordZ("");
+        setCoordY("");
       }
 
       // Set model data if exists
@@ -155,19 +156,20 @@ export function EditCameraDialog({ isOpen, onClose, onUpdate, camera }: EditCame
 
     // Optional 3D coordinates validation - if one is provided, all must be valid
     let coordinates3d: [number, number, number] | undefined = undefined;
-    if (coordX.trim() || coordY.trim() || coordZ.trim()) {
+    if (coordX.trim() || coordZ.trim() || coordY.trim()) {
       const x = parseFloat(coordX);
-      const y = parseFloat(coordY);
       const z = parseFloat(coordZ);
+      const y = parseFloat(coordY);
+      
 
       if (isNaN(x)) {
         newErrors.coordinates = "X coordinate must be a number";
-      } else if (isNaN(y)) {
-        newErrors.coordinates = "Y coordinate must be a number";
       } else if (isNaN(z)) {
         newErrors.coordinates = "Z coordinate must be a number";
+      } else if (isNaN(y)) {
+        newErrors.coordinates = "Y coordinate must be a number";
       } else {
-        coordinates3d = [x, y, z];
+        coordinates3d = [x, z, y];
       }
     }
 
@@ -322,20 +324,20 @@ export function EditCameraDialog({ isOpen, onClose, onUpdate, camera }: EditCame
                     />
                   </div>
                   <div className="flex flex-col flex-1">
-                    <span className="text-xs text-gray-500 mb-1">Y</span>
+                    <span className="text-xs text-gray-500 mb-1">Z</span>
                     <Input
-                      value={coordY}
-                      onChange={(e) => setCoordY(e.target.value)}
+                      value={coordZ}
+                      onChange={(e) => setCoordZ(e.target.value)}
                       type="number"
                       step="0.1"
                       className={errors.coordinates ? "border-red-500" : ""}
                     />
                   </div>
                   <div className="flex flex-col flex-1">
-                    <span className="text-xs text-gray-500 mb-1">Z</span>
+                    <span className="text-xs text-gray-500 mb-1">Y</span>
                     <Input
-                      value={coordZ}
-                      onChange={(e) => setCoordZ(e.target.value)}
+                      value={coordY}
+                      onChange={(e) => setCoordY(e.target.value)}
                       type="number"
                       step="0.1"
                       className={errors.coordinates ? "border-red-500" : ""}
